@@ -87,7 +87,7 @@ services:
     environment:
       POSTGRES_DB: litellm
       POSTGRES_USER: litellm
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}   # из litellm.env
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}   # из /opt/litellm/.env (см. раздел 3)
     volumes:
       - postgres_data:/var/lib/postgresql/data
     # порт 5432 наружу НЕ публикуем: БД доступна только внутри Docker-сети
@@ -120,6 +120,14 @@ openssl rand -hex 24
 ```
 
 Пользователь и база создаются автоматически при **первом** старте контейнера `db` из переменных `POSTGRES_USER` / `POSTGRES_DB` / `POSTGRES_PASSWORD` — psql и `CREATE USER` из venv-версии не нужны.
+
+**Важно:** подстановку `${POSTGRES_PASSWORD}` в `docker-compose.yml` docker compose выполняет **до** чтения `env_file` — переменные из `litellm.env` в неё не попадают (там ошибка «variable is not set», контейнер `db` не поднимется). Для подстановки нужен отдельный файл `/opt/litellm/.env` (compose читает его из каталога проекта автоматически):
+
+```bash
+cd /opt/litellm
+grep POSTGRES_PASSWORD litellm.env > .env
+chmod 600 .env
+```
 
 Пароль пока просто сохраните — добавим его в `litellm.env` в разделе 4.
 
@@ -344,7 +352,7 @@ nginx из [05d_nginx.md](05d_nginx.md) уже проксирует все пу�
 ## Короткий чеклист
 
 1. В `/opt/litellm/docker-compose.yml` добавить сервис `db` (postgres:16) и `depends_on: service_healthy`, volume `postgres_data`.
-2. Сгенерировать пароль БД, вписать его в `DATABASE_URL` (хост `db`), `LITELLM_SALT_KEY` и `UI_USERNAME`/`UI_PASSWORD` в `litellm.env`.
+2. Сгенерировать пароль БД и продублировать его в `/opt/litellm/.env` (для подстановки `${POSTGRES_PASSWORD}`; `env_file` для этого не подходит), вписать его в `DATABASE_URL` (хост `db`), `LITELLM_SALT_KEY` и `UI_USERNAME`/`UI_PASSWORD` в `litellm.env`.
 3. В `config.yaml` в `general_settings` добавить `database_url: os.environ/DATABASE_URL` (опционально `STORE_MODEL_IN_DB: "True"` в compose).
 4. `docker compose up -d` — Prisma-миграции в Docker-образе применяются сами, prisma-шаги из venv-версии не нужны.
 5. Дождаться `Application startup complete` в `docker compose logs litellm`.

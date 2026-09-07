@@ -1,3 +1,5 @@
+GUIDE - https://docs.litellm.ai/docs/tutorials/presidio_pii_masking
+
 Уточню ваш текущий контур LiteLLM и свежую схему интеграции Presidio, затем дам настройку без Docker под ваш GUI.
 Сверюсь с актуальной схемой LiteLLM + Presidio, чтобы дать рабочий конфиг под ваш Ubuntu-прокси.
 Зафиксирую, что PII пойдёт через Presidio, и дам схему под ваш текущий Ubuntu-прокси без Docker.
@@ -267,6 +269,9 @@ guardrails:
       presidio_anonymizer_api_base: os.environ/PRESIDIO_ANONYMIZER_API_BASE
       presidio_language: ru
       output_parse_pii: true
+      presidio_score_thresholds:   # пороги уверенности детекции (опционально)
+        ALL: 0.5                   # для всех сущностей
+        US_DRIVER_LICENSE: 0.85    # точечно, чтобы давить ложные срабатывания
       pii_entities_config:
         PERSON: MASK
         EMAIL_ADDRESS: MASK
@@ -291,6 +296,7 @@ guardrails:
 | `default_on: true` | работает для GUI без спец. заголовков |
 | `presidio_language: ru` | язык NLP. Для английских промптов поставьте `en` |
 | `output_parse_pii: true` | если в промпте `Иван` стал `<PERSON>`, в ответе клиенту LiteLLM может вернуть обратно `Иван` |
+| `presidio_score_thresholds` | минимальный confidence детекции по типам сущностей. `ALL` — общий порог, отдельный ключ переопределяет его для конкретной сущности. Опционально |
 | `pii_entities_config` | какие сущности трогать и как |
 
 Действия в `pii_entities_config`:
@@ -369,6 +375,25 @@ Presidio хорошо ловит формальные сущности: email, �
 - Смешанные тексты: один язык на весь запрос. Presidio не детектит язык сам.
 - Телефоны вида `+7 916 …` обычно ловятся стандартным `PHONE_NUMBER`.
 - «Иван Петров» на `ru_core_news_md` ловится часто, но не всегда. Если мало — ставьте `lg` и/или свой recognizer.
+
+Если Presidio даёт ложные срабатывания (например, короткие буквенно-цифровые строки ловятся как `US_DRIVER_LICENSE`), подавите их через `presidio_score_thresholds` — поднимите порог для конкретной сущности или задайте общий порог:
+
+```yaml
+litellm_params:
+  guardrail: presidio
+  presidio_score_thresholds:
+    US_DRIVER_LICENSE: 0.85
+    ALL: 0.5
+```
+
+Альтернатива — вовсе исключить сущность из детекции:
+
+```yaml
+litellm_params:
+  guardrail: presidio
+  presidio_entities_deny_list:
+    - US_DRIVER_LICENSE
+```
 
 Свой recognizer (например корпоративный табельный номер) кладётся JSON-файлом и подключается так:
 

@@ -1,3 +1,5 @@
+GUIDE - https://docs.litellm.ai/docs/tutorials/presidio_pii_masking
+
 Docker-версия гайда [04_add_presidio.md](04_add_presidio.md): PII-маскирование через Presidio для LiteLLM, развёрнутого по [01d_setup_litellm.md](01d_setup_litellm.md). Вместо venv, самописных Flask-обёрток и systemd-юнитов — официальные контейнеры Presidio (кастомная сборка нужна только для русской модели).
 
 Presidio в LiteLLM — это не плагин внутри процесса, а **два HTTP-сервиса**. LiteLLM перед вызовом модели (и/или после ответа) отправляет текст в Analyzer, затем в Anonymizer и уже обезличенный запрос пускает на ваш custom URL.
@@ -55,6 +57,43 @@ nlp_configuration:
 ```
 
 `md` достаточно для старта. Если качество имён будет слабым — поменяйте на `en_core_web_lg` / `ru_core_news_lg` и пересоберите образ.
+
+**Важно:** в актуальных образах analyzer `supported_languages` из analyzer-config задаёт только языки NLP-движка, а реестр рекогнайзеров (email, телефон, карты и т.д.) грузится из отдельного файла по умолчанию (`RECOGNIZER_REGISTRY_CONF_FILE=presidio_analyzer/conf/default_recognizers.yaml`) с единственным языком `en`. Если секции `recognizer_registry` в конфиге нет, контейнер падает на старте с ошибкой `Misconfigured engine, supported languages have to be consistent registry.supported_languages: ['en'], analyzer_engine.supported_languages: ['en', 'ru']`. Решение — добавить в `analyzer-config.yml` inline-секцию `recognizer_registry` (она имеет приоритет над зашитым файлом); проще всего скопировать туда содержимое дефолтного файла и заменить в нём `supported_languages` на `en, ru`:
+
+```yaml
+supported_languages:
+  - en
+  - ru
+default_score_threshold: 0.35
+
+nlp_configuration:
+  nlp_engine_name: spacy
+  models:
+    - lang_code: en
+      model_name: en_core_web_md
+    - lang_code: ru
+      model_name: ru_core_news_md
+
+recognizer_registry:
+  supported_languages:
+    - en
+    - ru
+  global_regex_flags: 26
+  recognizers:
+    # содержимое presidio_analyzer/conf/default_recognizers.yaml из образа
+    # (docker run --rm --entrypoint cat <образ> /app/presidio_analyzer/conf/default_recognizers.yaml)
+    # с секцией supported_languages: [en, ru] в начале
+    - name: CreditCardRecognizer
+      supported_languages:
+      - language: en
+        context: [credit, card, visa, mastercard, cc, amex, discover, jcb, diners, maestro, instapayment]
+      type: predefined
+    # ... остальные рекогнайзеры из дефолтного файла (EmailRecognizer,
+    # PhoneRecognizer, IpRecognizer, UrlRecognizer, IbanRecognizer,
+    # CryptoRecognizer, UsSsnRecognizer и т.д.)
+```
+
+Без этой секции работать будет только NLP-рекогнайзер (имена через spaCy), а языконезависимые паттерны (email, телефон, IP, URL) для `ru` не загрузятся.
 
 `/opt/presidio/Dockerfile`:
 
@@ -187,6 +226,9 @@ guardrails:
       presidio_anonymizer_api_base: os.environ/PRESIDIO_ANONYMIZER_API_BASE
       presidio_language: ru
       output_parse_pii: true
+      presidio_score_thresholds:   # пороги уверенности детекции (опционально)
+        ALL: 0.5                   # для всех сущностей
+        US_DRIVER_LICENSE: 0.85    # точечно, чтобы давить ложные срабатывания
       pii_entities_config:
         PERSON: MASK
         EMAIL_ADDRESS: MASK
@@ -211,6 +253,7 @@ guardrails:
 | `default_on: true` | работает для GUI без спец. заголовков |
 | `presidio_language: ru` | язык NLP. Для английских промптов поставьте `en` |
 | `output_parse_pii: true` | если в промпте `Иван` стал `<PERSON>`, в ответе клиенту LiteLLM может вернуть обратно `Иван` |
+| `presidio_score_thresholds` | минимальный confidence детекции по типам сущностей. `ALL` — общий порог, отдельный ключ переопределяет его для конкретной сущности. Опционально |
 | `pii_entities_config` | какие сущности трогать и как |
 
 Действия в `pii_entities_config`:
@@ -294,6 +337,25 @@ Presidio хорошо ловит формальные сущности: email, �
 - Телефоны вида `+7 916 …` обычно ловятся стандартным `PHONE_NUMBER`.
 - «Иван Петров» на `ru_core_news_md` ловится часто, но не всегда. Если мало — замените в `analyzer-config.yml` на `ru_core_news_lg` и пересоберите образ (`docker compose up -d --build`).
 
+Если Presidio даёт ложные срабатывания (например, короткие буквенно-цифровые строки ловятся как `US_DRIVER_LICENSE`), подавите их через `presidio_score_thresholds` — поднимите порог для конкретной сущности или задайте общий порог:
+
+```yaml
+litellm_params:
+  guardrail: presidio
+  presidio_score_thresholds:
+    US_DRIVER_LICENSE: 0.85
+    ALL: 0.5
+```
+
+Альтернатива — вовсе исключить сущность из детекции:
+
+```yaml
+litellm_params:
+  guardrail: presidio
+  presidio_entities_deny_list:
+    - US_DRIVER_LICENSE
+```
+
 Свой recognizer (например корпоративный табельный номер): JSON-файл кладётся рядом с конфигом LiteLLM и монтируется в контейнер. В `docker-compose.yml` сервиса `litellm`:
 
 ```yaml
@@ -340,6 +402,7 @@ litellm_params:
 | LiteLLM: connection refused `presidio-analyzer:3000` | контейнер не запущен или не в сети `litellm-net`; `docker compose ps` в `/opt/presidio` |
 | LiteLLM: `Presidio analyzer is not running` | Presidio ещё стартует (модель грузится в память, до минуты) или адрес в `PRESIDIO_*_API_BASE` указан с портом хоста вместо `:3000` |
 | analyzer: `ValueError: language ru not supported` | LiteLLM ходит в официальный образ без русской модели — пересоберите кастомный образ из раздела 2 |
+| analyzer: `Misconfigured engine, supported languages have to be consistent` при старте | в `analyzer-config.yml` нет inline-секции `recognizer_registry` (см. примечание в разделе 2) — дефолтный реестр образа знает только `en` |
 | PII не маскируется из GUI | нет `default_on: true` |
 | Имена не находятся, email находится | неверный `presidio_language` или слабая spaCy-модель (перейдите на `lg`-модели) |
 | 500 от analyzer на русском тексте | `ru_core_news_md` не попал в образ при сборке; смотрите `docker compose logs presidio-analyzer` |
