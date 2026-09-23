@@ -297,6 +297,53 @@ sudo chmod +x /usr/local/bin/litellm-cert-renew.sh
 sudo /usr/local/bin/litellm-cert-renew.sh
 ```
 
+### 6.4. Перенос существующего сертификата (миграция с хостовой установки)
+
+Если сертификат уже выпущен на хосте (например, остался от не-docker установки с `certbot --nginx`), выпускать новый не нужно — сертификат переносится в `/opt/nginx/letsencrypt` целиком.
+
+**Важно: делайте бэкап ДО удаления старых пакетов.** `sudo apt purge certbot ...` удаляет каталог `/etc/letsencrypt` вместе с сертификатами и аккаунтом ACME — после purge переносить будет нечего.
+
+```bash
+# 1. Бэкап (пока certbot ещё стоит или хотя бы каталог жив)
+sudo tar czf /root/litellm-backup.tar.gz /etc/letsencrypt
+
+# 2. Распаковка в каталог docker-nginx
+sudo rm -rf /tmp/le-restore && sudo mkdir -p /tmp/le-restore
+sudo tar xzf /root/litellm-backup.tar.gz -C /tmp/le-restore etc/letsencrypt
+sudo cp -a /tmp/le-restore/etc/letsencrypt /opt/nginx/letsencrypt
+sudo rm -rf /tmp/le-restore
+```
+
+После распаковки проверьте, что на месте `live/`, `archive/`, `accounts/` и `renewal/`:
+
+```bash
+ls /opt/nginx/letsencrypt/live/<домен>/
+openssl x509 -in /opt/nginx/letsencrypt/archive/<домен>/cert1.pem -noout -enddate -subject
+```
+
+**Перепишите renewal-конфиг на webroot.** Старая установка использовала `authenticator = nginx` — в контейнере такого плагина нет, продление упадёт. Замените `/opt/nginx/letsencrypt/renewal/<домен>.conf` целиком (аккаунт и `key_type` возьмите из старого файла):
+
+```ini
+version = 2.9.0
+archive_dir = /etc/letsencrypt/archive/<домен>
+cert = /etc/letsencrypt/live/<домен>/cert.pem
+privkey = /etc/letsencrypt/live/<домен>/privkey.pem
+chain = /etc/letsencrypt/live/<домен>/chain.pem
+fullchain = /etc/letsencrypt/live/<домен>/fullchain.pem
+
+[renewalparams]
+account = <account-id из старого файла>
+authenticator = webroot
+webroot_path = /var/www/html,
+server = https://acme-v02.api.letsencrypt.org/directory
+key_type = ecdsa
+
+[[webroot_map]]
+<домен> = /var/www/html
+```
+
+Дальше — сразу раздел 6.2 (HTTPS-конфиг) и 6.3 (скрипт продления + cron): выпуск по 6.1 пропускается, продление работает по тому же webroot-механизму.
+
 ---
 
 ## 7. Проверка итоговой работы

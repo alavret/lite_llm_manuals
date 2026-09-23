@@ -10,7 +10,7 @@
 
 - **LiteLLM Proxy** — шлюз OpenAI-compatible API на порту `4000`, проксирование на custom URL провайдера с авторизацией по токену
 - **Guardrails (custom code)** — контроль запросов, маскирование email/SSN
-- **Presidio Analyzer/Anonymizer** — маскирование PII (поддержка русского языка: ru-модель spaCy собирается кастомным analyzer)
+- **Presidio Analyzer/Anonymizer** — маскирование PII (поддержка русского языка: ru-модель spaCy собирается кастомным analyzer) + ~250 кастомных правил секретов/ПИД из guardrails-llm-filter + EXTRA_RULES (гайд 09)
 - **PostgreSQL** — хранение ключей, виртуальных ключей, данных Admin UI
 - **Admin UI** — веб-интерфейс управления LiteLLM
 - **Valkey** (Redis-совместимый) — кэш и состояние
@@ -29,14 +29,17 @@
   - `06_ui.md` — PostgreSQL + Admin UI
   - `07_valkey.md` — Valkey
   - `08_verify_guardrails_masking.md` — проверка маскирования
-- `docker_NN_*.md` — те же шаги для варианта **в Docker** (docker compose)
+  - `09_custom_rules.md` — кастомные правила из guardrails-llm-filter (секреты, СНИЛС/ИНН/ОГРН); конвертер `scripts/convert_guardrails_rules.py` или готовые артефакты `artefacts/` без конвертации
+- `docker_NN_*.md` — те же шаги для варианта **в Docker** (docker compose):
+  - `docker_01_setup_litellm.md` … `docker_08_verify_guardrails_masking.md` — аналоги гайдов 01–08
+  - `docker_09_custom_rules.md` — кастомные правила для Docker-варианта (вставка в `analyzer-config.yml` вместо патча кода)
 - `config.txt` — пример параметров подключения (endpoint, токен, модель, хост) для тестового провайдера
 - `scripts/` — скрипты автоматической установки (см. ниже)
 
 ## Варианты развёртывания
 
-1. **Без Docker** (`01–08_*.md`): компоненты ставятся в venv, работают как systemd-службы. Подходит, если Docker запрещён или нужна максимальная прозрачность.
-2. **В Docker** (`docker_01–08_*.md`): весь стек в контейнерах через docker compose; guardrail-код подключается bind-mount'ом с `PYTHONPATH`; Presidio с ru-моделью собирается в кастомный образ.
+1. **Без Docker** (`01–09_*.md`): компоненты ставятся в venv, работают как systemd-службы. Подходит, если Docker запрещён или нужна максимальная прозрачность.
+2. **В Docker** (`docker_01–09_*.md`): весь стек в контейнерах через docker compose; guardrail-код подключается bind-mount'ом с `PYTHONPATH`; Presidio с ru-моделью собирается в кастомный образ.
 
 Оба варианта дают одинаковую функциональность (прокси + guardrails + Presidio + PostgreSQL + UI + Valkey + опциональный nginx/TLS).
 
@@ -53,6 +56,10 @@ sudo ./scripts/install_litellm_docker.sh
 ```
 
 Запускать от root или через `sudo` (скрипт проверяет). Каждый скрипт объединяет шаги всех восьми гайдов соответствующего варианта: установка пакетов, системный пользователь `litellm` и каталоги (`/opt/litellm`, `/etc/litellm`, `/var/log/litellm`, `/opt/presidio`), venv/контейнеры, файл секретов `/etc/litellm/litellm.env`, конфиги, systemd-службы/compose, nginx и финальная проверка.
+
+Отдельно: `scripts/convert_guardrails_rules.py` — конвертер правил guardrails-llm-filter в кастомные распознаватели Presidio (гайды 09 / docker_09; не входит в установочные скрипты, запускается вручную при обновлении правил).
+
+Альтернатива без конвертации: `artefacts/` — готовый снапшот (250 правил / 247 сущностей, язык `ru`): `custom_recognizers.yaml` (правила для Presidio), `pii_entities_config.snippet.yaml` (сущности для LiteLLM), `analyzer_server.py` (пример сервера с загрузкой YAML — для варианта без Docker), `conversion_report.md` (отчёт пропусков). Подключение — подстановкой файлов по гайдам 09 / docker_09, раздел 9; ограничения метода — там же.
 
 ## Ключевые параметры, задаваемые пользователем
 

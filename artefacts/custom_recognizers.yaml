@@ -1,0 +1,2581 @@
+# Кастомные распознаватели из guardrails-llm-filter (гайд 09).
+# Готовый снапшот: 250 правил / 247 сущностей, язык ru.
+# Сгенерировано scripts/convert_guardrails_rules.py (см. гайд 09, раздел 3).
+# Источник: https://github.com/cloud-ru-tech/guardrails-llm-filter (configs/guardrails_regex_rules.yaml + configs/guardrails_regex_rules.gitleaks.generated.yaml) + 4 правила EXTRA_RULES
+#
+# Подключение — вариант БЕЗ Docker (venv):
+#   1. cp custom_recognizers.yaml /etc/presidio/custom_recognizers.yaml
+#   2. analyzer_server.py (пример: artefacts/analyzer_server.py) грузит файл
+#      при старте и регистрирует распознаватели через analyzer.registry.add_recognizer.
+#
+# Подключение — вариант Docker:
+#   допишите записи ниже (всё, что под ключом recognizers:) в КОНЕЦ списка
+#   recognizer_registry.recognizers в analyzer-config.yml, ПОСЛЕ предустановленных
+#   распознайзеров (если секция задана, Presidio грузит ТОЛЬКО перечисленное).
+#
+# Сущности для LiteLLM: artefacts/pii_entities_config.snippet.yaml.
+# Пропущенные правила и адаптации: artefacts/conversion_report.md.
+# Это снапшот на дату генерации — обновление правил только через конвертер.
+recognizers:
+- name: credentials.url_with_creds
+  supported_entity: URL_WITH_CREDS
+  patterns:
+  - name: credentials.url_with_creds
+    regex: (?i)((?:https?|ftp)://[^:\s@/\\]+:[^@\s/'"`,\\]{3,}@[^\s'"`\\,;!?()\[\]{}]*[^\s'"`\\,;.!?()\[\]{}])(?=[\x60'"\s,;.!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  supported_languages:
+  - ru
+- name: credentials.db_connection
+  supported_entity: DB_DSN
+  patterns:
+  - name: credentials.db_connection
+    regex: (?i)((?:postgres(?:ql)?|mysql|mssql|mongodb(?:\+srv)?)://[^:@\s\\]+:[^@\s'"`\,\\]{3,}@[^\s'"`\,;!?()\[\]{}\\]*[^\s'"`\,;.!?()\[\]{}\\])(?=[\x60'"\s,;.!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  supported_languages:
+  - ru
+- name: credentials.redis_connection
+  supported_entity: REDIS_DSN
+  patterns:
+  - name: credentials.redis_connection
+    regex: (?i)(redis(?:s)?://(?:[^:@/\s\\]*:)[^@\s/'"`?,#\\]{3,}@[^\s'"`\\,;!?()\[\]{}]*[^\s'"`\\,;.!?()\[\]{}])(?=[\x60'"\s,;.!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  supported_languages:
+  - ru
+- name: credentials.amqp_connection
+  supported_entity: AMQP_DSN
+  patterns:
+  - name: credentials.amqp_connection
+    regex: (?i)((?:amqps?)://(?:[^:@/\s\\]*:)[^@\s/'"`?,#\\]{3,}@[^\s'"`\\,;!?()\[\]{}]*[^\s'"`\\,;.!?()\[\]{}])(?=[\x60'"\s,;.!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  supported_languages:
+  - ru
+- name: credentials.nats_connection
+  supported_entity: NATS_DSN
+  patterns:
+  - name: credentials.nats_connection
+    regex: (?i)(nats://(?:[^:@/\s\\]+:)[^@\s/'"`?,\\]{3,}@[^\s'"`\\,;!?()\[\]{}]*[^\s'"`\\,;.!?()\[\]{}])(?=[\x60'"\s,;.!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  supported_languages:
+  - ru
+- name: credentials.http_auth_basic
+  supported_entity: HTTP_AUTH_BASIC
+  patterns:
+  - name: credentials.http_auth_basic
+    regex: (?i)Authorization:\s*Basic\s+([A-Za-z0-9+/]{8,}={0,2})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - Authorization
+  - Basic
+  supported_languages:
+  - ru
+- name: credentials.http_auth_bearer
+  supported_entity: BEARER_TOKEN
+  patterns:
+  - name: credentials.http_auth_bearer
+    regex: (?i)Authorization:\s*(?:Bearer|Token)\s+([A-Za-z0-9\-_.~+/]{12,512})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - Authorization
+  - Bearer
+  - Token
+  supported_languages:
+  - ru
+- name: credentials.url_encoded_bearer_token
+  supported_entity: BEARER_TOKEN
+  patterns:
+  - name: credentials.url_encoded_bearer_token
+    regex: (?i)(?:^|[?&\s])(?:auth|authorization|access_token|token)=["']?(?:Bearer|Token)(?:%20|\+|\s)+([A-Za-z0-9\-_.~+/]{12,512})(?=[&\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - Bearer
+  - Token
+  - '%20'
+  supported_languages:
+  - ru
+- name: credentials.api_key_header
+  supported_entity: API_KEY_HEADER
+  patterns:
+  - name: credentials.api_key_header
+    regex: (?i)(?:X-(?:Api-)?Key|Api-Key|X-Auth-Token)\s*:\s*([A-Za-z0-9\-_.~+/]{12,512})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - api
+  - key
+  - token
+  supported_languages:
+  - ru
+- name: credentials.nested_json_api_key
+  supported_entity: API_KEY_HEADER
+  patterns:
+  - name: credentials.nested_json_api_key
+    regex: (?i)(?:^|[,{]\s*)"?(?:api[-_]?key|key)"?\s*:\s*"?([A-Za-z0-9\-_.~+/]{12,512})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - api
+  - key
+  supported_languages:
+  - ru
+- name: credentials.password
+  supported_entity: PASSWORD
+  patterns:
+  - name: credentials.password
+    regex: (?i)(?:password|passwd|pwd)\s*[:=>{]+\s*(?:"([^"\\\r\n]{6,256})"|'([^'\\\r\n]{6,256})'|"([^\\\s'"`\,;:)\]\}]{6,256})|'([^\\\s'"`\,;:)\]\}]{6,256})|([^\\\s'"`\,;:)\]\}]{6,256}))(?=[\x60'"\s,;:()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - password
+  - passwd
+  - pwd
+  supported_languages:
+  - ru
+- name: credentials.oauth_query_secret
+  supported_entity: OAUTH_QUERY_SECRET
+  patterns:
+  - name: credentials.oauth_query_secret
+    regex: (?i)(?:\?|&)(?:access_token|refresh_token|id_token|client_secret)=([A-Za-z0-9._~+/%=-]{8,512})(?=[&\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - access_token
+  - refresh_token
+  - id_token
+  - client_secret
+  supported_languages:
+  - ru
+- name: credentials.oauth_body_secret
+  supported_entity: OAUTH_BODY_SECRET
+  patterns:
+  - name: credentials.oauth_body_secret
+    regex: (?i)(?:^|[&\s{,]|\\")["']?(?:access_token|refresh_token|id_token|client_secret)["']?(?:\\"|["'])?\s*[:=]\s*(?:\\"|["'])?([A-Za-z0-9._~+/%=-]{8,512})(?=\\"|[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - access_token
+  - refresh_token
+  - id_token
+  - client_secret
+  supported_languages:
+  - ru
+- name: access_tokens.twilio-auth-token
+  supported_entity: TWILIO_AUTH_TOKEN
+  patterns:
+  - name: access_tokens.twilio-auth-token
+    regex: (?i)twilio[^\r\n]{0,60}?([a-f0-9]{32})\b
+    score: 0.8
+  context:
+  - twilio
+  - auth_token
+  supported_languages:
+  - ru
+- name: access_tokens.generic-token
+  supported_entity: TOKEN
+  patterns:
+  - name: access_tokens.generic-token
+    regex: (?i)(?:(?:api[\s-]?(?:ключ|key)|access[\s-]?token|reset[\s-]?токен|токен|token)(?:[\s,.:;!?()«»"\x27-]+[а-яё]+){0,5}[\s,.:;!?()«»"\x27-]*([A-Za-z0-9]{16,})|\b((?:api|key|token|tok|sk|pk|secret|access)_[A-Za-z0-9]{16,})|(?:смс\s+с\s+код[а-яё]*|код\s+(?:восстановлени[а-яё]+|подтвержден[а-яё]+|активаци[а-яё]+|из\s+смс|для\s+(?:подтвержден[а-яё]+|активаци[а-яё]+|верификац[а-яё]+))|otp|one-time|(?:пришел|пришёл|получил)\s+код)(?:[^\d]{0,15})(\d{4,8}))\b
+    score: 0.6
+  supported_languages:
+  - ru
+- name: access_tokens.generic-long-token
+  supported_entity: TOKEN
+  patterns:
+  - name: access_tokens.generic-long-token
+    regex: (?-i)\b(?=[a-z0-9]*[A-Z])[A-Za-z0-9]{32,}\b
+    score: 0.6
+  supported_languages:
+  - ru
+- name: access_tokens.vault-token
+  supported_entity: VAULT_TOKEN
+  patterns:
+  - name: access_tokens.vault-token
+    regex: (hv[sbr]\.[A-Za-z0-9_\-]{90,120})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - vault
+  - VAULT_TOKEN
+  supported_languages:
+  - ru
+- name: access_tokens.private-key-pem
+  supported_entity: PEM_KEY
+  patterns:
+  - name: access_tokens.private-key-pem
+    regex: '-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]+?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'
+    score: 0.8
+  supported_languages:
+  - ru
+- name: pii.phone-ru
+  supported_entity: PHONE_RU
+  patterns:
+  - name: pii.phone-ru
+    regex: (?<=^|[^\d])((?:\+7|8)[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2})\b
+    score: 0.8
+  supported_languages:
+  - ru
+- name: pii.docs.snils
+  supported_entity: SNILS
+  patterns:
+  - name: pii.docs.snils
+    regex: (?i)(?:снилс|snils)[^\d\r\n]{0,20}(\d{3}[\s-]?\d{3}[\s-]?\d{3}[\s-]?\d{2})
+    score: 0.8
+  supported_languages:
+  - ru
+- name: pii.docs.passport
+  supported_entity: PASSPORT_RF
+  patterns:
+  - name: pii.docs.passport
+    regex: (?i)(?:паспорт[а-яё]*|пасп\.?|серия)(?:[\s,.:;!?()«»"\x27-]+[а-яё]+){0,3}[\s,.:;!?()«»"\x27№-]*(\d{2}[\s-]?\d{2}[\s-]*(?:(?:№|номер)[\s№:.-]*)?\d{6})(?=\D|$)
+    score: 0.8
+  context:
+  - паспорт
+  - серия
+  supported_languages:
+  - ru
+- name: pii.docs.kpp
+  supported_entity: KPP
+  patterns:
+  - name: pii.docs.kpp
+    regex: (?i)кпп(?:[\s,.:;!?()«»"\x27-]+[а-яёa-z]+){0,3}[\s,.:;!?()«»"\x27-]*(\d{4}[\dА-ЯA-Z]{2}\d{3})\b
+    score: 0.8
+  context:
+  - кпп
+  supported_languages:
+  - ru
+- name: pii.docs.address
+  supported_entity: ADDRESS
+  patterns:
+  - name: pii.docs.address
+    regex: (?i)(?:^|[\s.,:;!?(])((?:[Гг]\.?\s?(?-i:[ЁА-Я])[ёа-я\-]+,?\s+)?(?:ул(?:иц[аеу])?|пр-т|пр\.|просп(?:ект)?|пер(?:еул(?:ок)?)?\.?|пл(?:ощадь)?|б-р|бул(?:ьвар)?|шоссе|ш\.|наб(?:ережная)?|проезд|алл(?:ея)?)\.?\s+(?:(?-i:[ЁА-Я])[ёа-яЁА-Я0-9.\-]*[,\s]+){1,3}(?:д(?:ом)?\.?\s?)?\d+[а-я]?(?:\s?(?:к(?:орп(?:ус)?)?|стр(?:оение)?)\.?\s?\d+)?(?:[,\s]+(?:кв(?:артира)?|подъезд|под|офис)\.?\s?\d+[а-я]?)?|(?:(?-i:[ЁА-Я])[ёа-яЁА-Я0-9.\-]*\s+){1,2}(?:проспект|улиц[аеу]|переулок|площадь|шоссе|бульвар|набережная|проезд)[,\s]+(?:д(?:ом)?\.?\s?)?\d+[а-я]?(?:[,\s]+(?:кв(?:артира)?|подъезд|под|офис|корпус|к)\.?\s?\d+[а-я]?)?|(?-i:[ЁА-Я])[ёа-яЁА-Я0-9.\-]*\s+\d+[а-я]?\s?(?:к(?:орп(?:ус)?)?\.?\s?\d+|(?:,?\s?(?:кв(?:артира)?|подъезд|под)\.?\s?\d+)))
+    score: 0.8
+  supported_languages:
+  - ru
+- name: pii.docs.inn-person
+  supported_entity: INN_PERSON
+  patterns:
+  - name: pii.docs.inn-person
+    regex: (?i)(?:инн|inn)[^\d\r\n]{0,20}(\d{12})
+    score: 0.8
+  context:
+  - ИНН
+  - инн
+  - inn
+  - 'ИНН:'
+  supported_languages:
+  - ru
+- name: pii.docs.inn-org
+  supported_entity: INN_ORG
+  patterns:
+  - name: pii.docs.inn-org
+    regex: (?i)(?:инн|inn)[^\d\r\n]{0,20}(\d{10})
+    score: 0.8
+  context:
+  - ИНН
+  - инн
+  - inn
+  - 'ИНН:'
+  supported_languages:
+  - ru
+- name: pii.docs.ogrn
+  supported_entity: OGRN
+  patterns:
+  - name: pii.docs.ogrn
+    regex: (?i)(?:огрн|ogrn)[^\d\r\n]{0,20}(\d{13})
+    score: 0.8
+  context:
+  - ОГРН
+  - ogrn
+  supported_languages:
+  - ru
+- name: pii.docs.ogrnip
+  supported_entity: OGRNIP
+  patterns:
+  - name: pii.docs.ogrnip
+    regex: (?i)(?:огрнип|ogrnip)[^\d\r\n]{0,20}(3\d{14})
+    score: 0.8
+  context:
+  - ОГРНИП
+  - ogrnip
+  supported_languages:
+  - ru
+- name: pii.fin.cvc
+  supported_entity: CVC
+  patterns:
+  - name: pii.fin.cvc
+    regex: (?i)(?:(?:cvc|cvv|цвс|cvv2|cvc2|код\s+безопасности)(?:[\s,.:;!?()«»"\x27-]+[а-яё]+){0,3}[\s,.:;!?()«»"\x27-]*(\d{3})|(?:обороте?\s+карт[а-яё]*|сзади\s+карт[а-яё]*|на\s+обороте|код\s+подтвержден[а-яё]+\s+карт[а-яё]*|цифры\s+(?:на\s+)?обороте|карт[а-яё]*\s+для\s+бронировани[а-яё]*)(?:[^\d]{0,20})(\d{3}))\b
+    score: 0.8
+  context:
+  - cvc
+  - cvv
+  - цвс
+  - обороте
+  - сзади
+  - карт
+  supported_languages:
+  - ru
+- name: credentials.adobe-client-id.gl
+  supported_entity: ADOBE_CLIENT_ID
+  patterns:
+  - name: credentials.adobe-client-id.gl
+    regex: (?i)[\w.-]{0,50}?(?:adobe)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-f0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - adobe
+  supported_languages:
+  - ru
+- name: credentials.adobe-client-secret.gl
+  supported_entity: ADOBE_CLIENT_SECRET
+  patterns:
+  - name: credentials.adobe-client-secret.gl
+    regex: \b(p8e-(?i)[a-z0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - p8e-
+  supported_languages:
+  - ru
+- name: credentials.asana-client-id.gl
+  supported_entity: ASANA_CLIENT_ID
+  patterns:
+  - name: credentials.asana-client-id.gl
+    regex: (?i)[\w.-]{0,50}?(?:asana)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9]{16})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - asana
+  supported_languages:
+  - ru
+- name: credentials.asana-client-secret.gl
+  supported_entity: ASANA_CLIENT_SECRET
+  patterns:
+  - name: credentials.asana-client-secret.gl
+    regex: (?i)[\w.-]{0,50}?(?:asana)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - asana
+  supported_languages:
+  - ru
+- name: credentials.azure-ad-client-secret.gl
+  supported_entity: AZURE_AD_CLIENT_SECRET
+  patterns:
+  - name: credentials.azure-ad-client-secret.gl
+    regex: (?<=^|[\\'"\x60\s>=:(,)])([a-zA-Z0-9_~.]{3}\dQ~[a-zA-Z0-9_~.-]{31,34})(?:$|[\\'"\x60\s<),])
+    score: 0.8
+  context:
+  - q~
+  supported_languages:
+  - ru
+- name: credentials.bitbucket-client-id.gl
+  supported_entity: BITBUCKET_CLIENT_ID
+  patterns:
+  - name: credentials.bitbucket-client-id.gl
+    regex: (?i)[\w.-]{0,50}?(?:bitbucket)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - bitbucket
+  supported_languages:
+  - ru
+- name: credentials.bitbucket-client-secret.gl
+  supported_entity: BITBUCKET_CLIENT_SECRET
+  patterns:
+  - name: credentials.bitbucket-client-secret.gl
+    regex: (?i)[\w.-]{0,50}?(?:bitbucket)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9=_\-]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - bitbucket
+  supported_languages:
+  - ru
+- name: credentials.curl-auth-header.gl
+  supported_entity: CURL_AUTH_HEADER
+  patterns:
+  - name: credentials.curl-auth-header.gl
+    regex: \bcurl\b(?:.*?|.*?(?:[\r\n]{1,2}.*?){1,5})[ \t\n\r](?:-H|--header)(?:=|[ \t]{0,5})(?:"(?i)(?:Authorization:[ \t]{0,5}(?:Basic[ \t]([a-z0-9+/]{8,}={0,3})|(?:Bearer|(?:Api-)?Token)[ \t]([\w=~@.+/-]{8,})|([\w=~@.+/-]{8,}))|(?:(?:X-(?:[a-z]+-)?)?(?:Api-?)?(?:Key|Token)):[ \t]{0,5}([\w=~@.+/-]{8,}))"|'(?i)(?:Authorization:[ \t]{0,5}(?:Basic[ \t]([a-z0-9+/]{8,}={0,3})|(?:Bearer|(?:Api-)?Token)[ \t]([\w=~@.+/-]{8,})|([\w=~@.+/-]{8,}))|(?:(?:X-(?:[a-z]+-)?)?(?:Api-?)?(?:Key|Token)):[ \t]{0,5}([\w=~@.+/-]{8,}))')(?=\B|\s|\z)
+    score: 0.8
+  context:
+  - curl
+  supported_languages:
+  - ru
+- name: credentials.curl-auth-user.gl
+  supported_entity: CURL_AUTH_USER
+  patterns:
+  - name: credentials.curl-auth-user.gl
+    regex: \bcurl\b(?:.*|.*(?:[\r\n]{1,2}.*){1,5})[ \t\n\r](?:-u|--user)(?:=|[ \t]{0,5})("(:[^"]{3,}|[^:"]{3,}:|[^:"]{3,}:[^"]{3,})"|'([^:']{3,}:[^']{3,})'|((?:"[^"]{3,}"|'[^']{3,}'|[\w$@.-]+):(?:"[^"]{3,}"|'[^']{3,}'|[\w${}@.-]+)))(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|\z)
+    score: 0.8
+  context:
+  - curl
+  supported_languages:
+  - ru
+- name: credentials.digitalocean-refresh-token.gl
+  supported_entity: DIGITALOCEAN_REFRESH_TOKEN
+  patterns:
+  - name: credentials.digitalocean-refresh-token.gl
+    regex: (?i)\b(dor_v1_[a-f0-9]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - dor_v1_
+  supported_languages:
+  - ru
+- name: credentials.discord-client-id.gl
+  supported_entity: DISCORD_CLIENT_ID
+  patterns:
+  - name: credentials.discord-client-id.gl
+    regex: (?i)[\w.-]{0,50}?(?:discord)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9]{18})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - discord
+  supported_languages:
+  - ru
+- name: credentials.discord-client-secret.gl
+  supported_entity: DISCORD_CLIENT_SECRET
+  patterns:
+  - name: credentials.discord-client-secret.gl
+    regex: (?i)[\w.-]{0,50}?(?:discord)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9=_\-]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - discord
+  supported_languages:
+  - ru
+- name: credentials.facebook-secret.gl
+  supported_entity: FACEBOOK_SECRET
+  patterns:
+  - name: credentials.facebook-secret.gl
+    regex: (?i)[\w.-]{0,50}?(?:facebook)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-f0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - facebook
+  supported_languages:
+  - ru
+- name: credentials.finicity-client-secret.gl
+  supported_entity: FINICITY_CLIENT_SECRET
+  patterns:
+  - name: credentials.finicity-client-secret.gl
+    regex: (?i)[\w.-]{0,50}?(?:finicity)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{20})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - finicity
+  supported_languages:
+  - ru
+- name: credentials.github-oauth.gl
+  supported_entity: GITHUB_OAUTH
+  patterns:
+  - name: credentials.github-oauth.gl
+    regex: gho_[0-9a-zA-Z]{36}
+    score: 0.8
+  context:
+  - gho_
+  supported_languages:
+  - ru
+- name: credentials.github-refresh-token.gl
+  supported_entity: GITHUB_REFRESH_TOKEN
+  patterns:
+  - name: credentials.github-refresh-token.gl
+    regex: ghr_[0-9a-zA-Z]{36}
+    score: 0.8
+  context:
+  - ghr_
+  supported_languages:
+  - ru
+- name: credentials.gitlab-oauth-app-secret.gl
+  supported_entity: GITLAB_OAUTH_APP_SECRET
+  patterns:
+  - name: credentials.gitlab-oauth-app-secret.gl
+    regex: gloas-[0-9a-zA-Z_\-]{64}
+    score: 0.8
+  context:
+  - gloas-
+  supported_languages:
+  - ru
+- name: credentials.gitlab-session-cookie.gl
+  supported_entity: GITLAB_SESSION_COOKIE
+  patterns:
+  - name: credentials.gitlab-session-cookie.gl
+    regex: _gitlab_session=([0-9a-z]{32})
+    score: 0.8
+  context:
+  - _gitlab_session=
+  supported_languages:
+  - ru
+- name: credentials.hashicorp-tf-password.gl
+  supported_entity: HASHICORP_TF_PASSWORD
+  patterns:
+  - name: credentials.hashicorp-tf-password.gl
+    regex: (?i)[\w.-]{0,50}?(?:administrator_login_password|password)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}\\?"([a-z0-9=_\-]{8,20})\\?"(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - administrator_login_password
+  - password
+  supported_languages:
+  - ru
+- name: credentials.intra42-client-secret.gl
+  supported_entity: INTRA42_CLIENT_SECRET
+  patterns:
+  - name: credentials.intra42-client-secret.gl
+    regex: \b(s-s4t2(?:ud|af)-(?i)[abcdef0123456789]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - intra
+  - s-s4t2ud-
+  - s-s4t2af-
+  supported_languages:
+  - ru
+- name: credentials.jwt-base64.gl
+  supported_entity: JWT_BASE64
+  patterns:
+  - name: credentials.jwt-base64.gl
+    regex: \bZXlK(?:(?P<alg>aGJHY2lPaU)|(?P<apu>aGNIVWlPaU)|(?P<apv>aGNIWWlPaU)|(?P<aud>aGRXUWlPaU)|(?P<b64>aU5qUWlP)|(?P<crit>amNtbDBJanBi)|(?P<cty>amRIa2lPaU)|(?P<epk>bGNHc2lPbn)|(?P<enc>bGJtTWlPaU)|(?P<jku>cWEzVWlPaU)|(?P<jwk>cWQyc2lPb)|(?P<iss>cGMzTWlPaU)|(?P<iv>cGRpSTZJ)|(?P<kid>cmFXUWlP)|(?P<key_ops>clpYbGZiM0J6SWpwY)|(?P<kty>cmRIa2lPaUp)|(?P<nonce>dWIyNWpaU0k2)|(?P<p2c>d01tTWlP)|(?P<p2s>d01uTWlPaU)|(?P<ppt>d2NIUWlPaU)|(?P<sub>emRXSWlPaU)|(?P<svt>emRuUWlP)|(?P<tag>MFlXY2lPaU)|(?P<typ>MGVYQWlPaUp)|(?P<url>MWNtd2l)|(?P<use>MWMyVWlPaUp)|(?P<ver>MlpYSWlPaU)|(?P<version>MlpYSnphVzl1SWpv)|(?P<x>NElqb2)|(?P<x5c>NE5XTWlP)|(?P<x5t>NE5YUWlPaU)|(?P<x5ts256>NE5YUWpVekkxTmlJNkl)|(?P<x5u>NE5YVWlPaU)|(?P<zip>NmFYQWlPaU))[a-zA-Z0-9\/\\_+\-\r\n]{40,}={0,2}
+    score: 0.8
+  context:
+  - zxlk
+  supported_languages:
+  - ru
+- name: credentials.jwt.gl
+  supported_entity: JWT
+  patterns:
+  - name: credentials.jwt.gl
+    regex: \b(ey[a-zA-Z0-9]{17,}\.ey[a-zA-Z0-9\/_-]{17,}\.(?:[a-zA-Z0-9\/_-]{10,}={0,2})?)(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - ey
+  supported_languages:
+  - ru
+- name: credentials.kubernetes-secret-yaml.gl
+  supported_entity: KUBERNETES_SECRET_YAML
+  patterns:
+  - name: credentials.kubernetes-secret-yaml.gl
+    regex: (?i)(?=\bkind:[ \t]*["']?\bsecret\b["']?(?s:.){0,200}?\bdata:(?s:.){0,100}?\s+[\w.-]+:(?:[ \t]*(?:\||>[-+]?)\s+)?[ \t]*["']?([a-z0-9+/]{10,}={0,3})["']?|\bdata:(?s:.){0,100}?\s+[\w.-]+:(?:[ \t]*(?:\||>[-+]?)\s+)?[ \t]*["']?([a-z0-9+/]{10,}={0,3})["']?(?s:.){0,200}?\bkind:[ \t]*["']?\bsecret\b["']?)
+    score: 0.8
+  context:
+  - secret
+  supported_languages:
+  - ru
+- name: credentials.linear-client-secret.gl
+  supported_entity: LINEAR_CLIENT_SECRET
+  patterns:
+  - name: credentials.linear-client-secret.gl
+    regex: (?i)[\w.-]{0,50}?(?:linear)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-f0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - linear
+  supported_languages:
+  - ru
+- name: credentials.linkedin-client-id.gl
+  supported_entity: LINKEDIN_CLIENT_ID
+  patterns:
+  - name: credentials.linkedin-client-id.gl
+    regex: (?i)[\w.-]{0,50}?(?:linked[_-]?in)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{14})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - linkedin
+  - linked_in
+  - linked-in
+  supported_languages:
+  - ru
+- name: credentials.linkedin-client-secret.gl
+  supported_entity: LINKEDIN_CLIENT_SECRET
+  patterns:
+  - name: credentials.linkedin-client-secret.gl
+    regex: (?i)[\w.-]{0,50}?(?:linked[_-]?in)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{16})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - linkedin
+  - linked_in
+  - linked-in
+  supported_languages:
+  - ru
+- name: credentials.looker-client-id.gl
+  supported_entity: LOOKER_CLIENT_ID
+  patterns:
+  - name: credentials.looker-client-id.gl
+    regex: (?i)[\w.-]{0,50}?(?:looker)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{20})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - looker
+  supported_languages:
+  - ru
+- name: credentials.looker-client-secret.gl
+  supported_entity: LOOKER_CLIENT_SECRET
+  patterns:
+  - name: credentials.looker-client-secret.gl
+    regex: (?i)[\w.-]{0,50}?(?:looker)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{24})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - looker
+  supported_languages:
+  - ru
+- name: credentials.messagebird-client-id.gl
+  supported_entity: MESSAGEBIRD_CLIENT_ID
+  patterns:
+  - name: credentials.messagebird-client-id.gl
+    regex: (?i)[\w.-]{0,50}?(?:message[_-]?bird)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - messagebird
+  - message-bird
+  - message_bird
+  supported_languages:
+  - ru
+- name: credentials.new-relic-user-api-id.gl
+  supported_entity: NEW_RELIC_USER_API_ID
+  patterns:
+  - name: credentials.new-relic-user-api-id.gl
+    regex: (?i)[\w.-]{0,50}?(?:new-relic|newrelic|new_relic)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - new-relic
+  - newrelic
+  - new_relic
+  supported_languages:
+  - ru
+- name: credentials.nuget-config-password.gl
+  supported_entity: NUGET_CONFIG_PASSWORD
+  patterns:
+  - name: credentials.nuget-config-password.gl
+    regex: (?i)<add key=\"(?:(?:ClearText)?Password)\"\s*value=\"(.{8,})\"\s*/>
+    score: 0.8
+  context:
+  - <add key=
+  supported_languages:
+  - ru
+- name: credentials.plaid-client-id.gl
+  supported_entity: PLAID_CLIENT_ID
+  patterns:
+  - name: credentials.plaid-client-id.gl
+    regex: (?i)[\w.-]{0,50}?(?:plaid)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{24})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - plaid
+  supported_languages:
+  - ru
+- name: credentials.planetscale-oauth-token.gl
+  supported_entity: PLANETSCALE_OAUTH_TOKEN
+  patterns:
+  - name: credentials.planetscale-oauth-token.gl
+    regex: \b(pscale_oauth_[\w=\.-]{32,64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - pscale_oauth_
+  supported_languages:
+  - ru
+- name: credentials.planetscale-password.gl
+  supported_entity: PLANETSCALE_PASSWORD
+  patterns:
+  - name: credentials.planetscale-password.gl
+    regex: (?i)\b(pscale_pw_(?i)[\w=\.-]{32,64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - pscale_pw_
+  supported_languages:
+  - ru
+- name: credentials.sendbird-access-id.gl
+  supported_entity: SENDBIRD_ACCESS_ID
+  patterns:
+  - name: credentials.sendbird-access-id.gl
+    regex: (?i)[\w.-]{0,50}?(?:sendbird)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sendbird
+  supported_languages:
+  - ru
+- name: credentials.shopify-shared-secret.gl
+  supported_entity: SHOPIFY_SHARED_SECRET
+  patterns:
+  - name: credentials.shopify-shared-secret.gl
+    regex: shpss_[a-fA-F0-9]{32}
+    score: 0.8
+  context:
+  - shpss_
+  supported_languages:
+  - ru
+- name: credentials.sidekiq-secret.gl
+  supported_entity: SIDEKIQ_SECRET
+  patterns:
+  - name: credentials.sidekiq-secret.gl
+    regex: (?i)[\w.-]{0,50}?(?:BUNDLE_ENTERPRISE__CONTRIBSYS__COM|BUNDLE_GEMS__CONTRIBSYS__COM)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-f0-9]{8}:[a-f0-9]{8})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - bundle_enterprise__contribsys__com
+  - bundle_gems__contribsys__com
+  supported_languages:
+  - ru
+- name: credentials.sidekiq-sensitive-url.gl
+  supported_entity: SIDEKIQ_SENSITIVE_URL
+  patterns:
+  - name: credentials.sidekiq-sensitive-url.gl
+    regex: (?i)\b(https?://[a-f0-9]{8}:[a-f0-9]{8}@(?:gems.contribsys.com|enterprise.contribsys.com))(?=[\/#?:\x60'"\s,;.!()\[\]{}]|$)
+    score: 0.8
+  context:
+  - gems.contribsys.com
+  - enterprise.contribsys.com
+  supported_languages:
+  - ru
+- name: credentials.slack-config-refresh-token.gl
+  supported_entity: SLACK_CONFIG_REFRESH_TOKEN
+  patterns:
+  - name: credentials.slack-config-refresh-token.gl
+    regex: (?i)xoxe-\d-[A-Z0-9]{146}
+    score: 0.8
+  context:
+  - xoxe-
+  supported_languages:
+  - ru
+- name: credentials.sumologic-access-id.gl
+  supported_entity: SUMOLOGIC_ACCESS_ID
+  patterns:
+  - name: credentials.sumologic-access-id.gl
+    regex: '[\w.-]{0,50}?(?i:[\w.-]{0,50}?(?:(?-i:[Ss]umo|SUMO))(?:[ \t\w.-]{0,20})[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}(su[a-zA-Z0-9]{12})(?=[\x60''"\s,;:!?()\[\]{}]|\\[nr]|$)'
+    score: 0.8
+  context:
+  - sumo
+  supported_languages:
+  - ru
+- name: credentials.twitter-access-secret.gl
+  supported_entity: TWITTER_ACCESS_SECRET
+  patterns:
+  - name: credentials.twitter-access-secret.gl
+    regex: (?i)[\w.-]{0,50}?(?:twitter)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{45})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - twitter
+  supported_languages:
+  - ru
+- name: credentials.twitter-api-secret.gl
+  supported_entity: TWITTER_API_SECRET
+  patterns:
+  - name: credentials.twitter-api-secret.gl
+    regex: (?i)[\w.-]{0,50}?(?:twitter)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{50})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - twitter
+  supported_languages:
+  - ru
+- name: api_keys.adafruit-api-key.gl
+  supported_entity: ADAFRUIT_API_KEY
+  patterns:
+  - name: api_keys.adafruit-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:adafruit)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9_-]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - adafruit
+  supported_languages:
+  - ru
+- name: api_keys.airtable-api-key.gl
+  supported_entity: AIRTABLE_API_KEY
+  patterns:
+  - name: api_keys.airtable-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:airtable)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{17})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - airtable
+  supported_languages:
+  - ru
+- name: api_keys.algolia-api-key.gl
+  supported_entity: ALGOLIA_API_KEY
+  patterns:
+  - name: api_keys.algolia-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:algolia)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - algolia
+  supported_languages:
+  - ru
+- name: api_keys.anthropic-admin-api-key.gl
+  supported_entity: ANTHROPIC_ADMIN_API_KEY
+  patterns:
+  - name: api_keys.anthropic-admin-api-key.gl
+    regex: \b(sk-ant-admin01-[a-zA-Z0-9_\-]{93}AA)(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sk-ant-admin01
+  supported_languages:
+  - ru
+- name: api_keys.anthropic-api-key.gl
+  supported_entity: ANTHROPIC_API_KEY
+  patterns:
+  - name: api_keys.anthropic-api-key.gl
+    regex: \b(sk-ant-api03-[a-zA-Z0-9_\-]{93}AA)(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sk-ant-api03
+  supported_languages:
+  - ru
+- name: api_keys.artifactory-api-key.gl
+  supported_entity: ARTIFACTORY_API_KEY
+  patterns:
+  - name: api_keys.artifactory-api-key.gl
+    regex: \bAKCp[A-Za-z0-9]{69}\b
+    score: 0.8
+  context:
+  - akcp
+  supported_languages:
+  - ru
+- name: api_keys.atlassian-api-token.gl
+  supported_entity: ATLASSIAN_API_TOKEN
+  patterns:
+  - name: api_keys.atlassian-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:(?-i:ATLASSIAN|[Aa]tlassian)|(?-i:CONFLUENCE|[Cc]onfluence)|(?-i:JIRA|[Jj]ira))(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{20}[a-f0-9]{4})(?:[\x60'"\s;]|\\[nr]|$)|\b(ATATT3[A-Za-z0-9_\-=]{186})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - atlassian
+  - confluence
+  - jira
+  - atatt3
+  supported_languages:
+  - ru
+- name: api_keys.aws-amazon-bedrock-api-key-long-lived.gl
+  supported_entity: AWS_AMAZON_BEDROCK_API_KEY_LONG_LIVED
+  patterns:
+  - name: api_keys.aws-amazon-bedrock-api-key-long-lived.gl
+    regex: \b(ABSK[A-Za-z0-9+/]{109,269}={0,2})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - absk
+  supported_languages:
+  - ru
+- name: api_keys.aws-amazon-bedrock-api-key-short-lived.gl
+  supported_entity: AWS_AMAZON_BEDROCK_API_KEY_SHORT_LIVED
+  patterns:
+  - name: api_keys.aws-amazon-bedrock-api-key-short-lived.gl
+    regex: bedrock-api-key-YmVkcm9jay5hbWF6b25hd3MuY29t
+    score: 0.8
+  context:
+  - bedrock-api-key-
+  supported_languages:
+  - ru
+- name: api_keys.beamer-api-token.gl
+  supported_entity: BEAMER_API_TOKEN
+  patterns:
+  - name: api_keys.beamer-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:beamer)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(b_[a-z0-9=_\-]{44})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - beamer
+  supported_languages:
+  - ru
+- name: api_keys.cisco-meraki-api-key.gl
+  supported_entity: CISCO_MERAKI_API_KEY
+  patterns:
+  - name: api_keys.cisco-meraki-api-key.gl
+    regex: '[\w.-]{0,50}?(?i:[\w.-]{0,50}?(?:(?-i:[Mm]eraki|MERAKI))(?:[ \t\w.-]{0,20})[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}([0-9a-f]{40})(?=[\x60''"\s,;:!?()\[\]{}]|\\[nr]|$)'
+    score: 0.8
+  context:
+  - meraki
+  supported_languages:
+  - ru
+- name: api_keys.clickhouse-cloud-api-secret-key.gl
+  supported_entity: CLICKHOUSE_CLOUD_API_SECRET_KEY
+  patterns:
+  - name: api_keys.clickhouse-cloud-api-secret-key.gl
+    regex: \b(4b1d[A-Za-z0-9]{38})\b
+    score: 0.8
+  context:
+  - 4b1d
+  supported_languages:
+  - ru
+- name: api_keys.clojars-api-token.gl
+  supported_entity: CLOJARS_API_TOKEN
+  patterns:
+  - name: api_keys.clojars-api-token.gl
+    regex: (?i)CLOJARS_[a-z0-9]{60}
+    score: 0.8
+  context:
+  - clojars_
+  supported_languages:
+  - ru
+- name: api_keys.cloudflare-api-key.gl
+  supported_entity: CLOUDFLARE_API_KEY
+  patterns:
+  - name: api_keys.cloudflare-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:cloudflare)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9_-]{40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - cloudflare
+  supported_languages:
+  - ru
+- name: api_keys.cloudflare-global-api-key.gl
+  supported_entity: CLOUDFLARE_GLOBAL_API_KEY
+  patterns:
+  - name: api_keys.cloudflare-global-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:cloudflare)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-f0-9]{37})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - cloudflare
+  supported_languages:
+  - ru
+- name: api_keys.cohere-api-token.gl
+  supported_entity: COHERE_API_TOKEN
+  patterns:
+  - name: api_keys.cohere-api-token.gl
+    regex: '[\w.-]{0,50}?(?i:[\w.-]{0,50}?(?:cohere|CO_API_KEY)(?:[ \t\w.-]{0,20})[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}([a-zA-Z0-9]{40})(?=[\x60''"\s,;:!?()\[\]{}]|\\[nr]|$)'
+    score: 0.8
+  context:
+  - cohere
+  - co_api_key
+  supported_languages:
+  - ru
+- name: api_keys.contentful-delivery-api-token.gl
+  supported_entity: CONTENTFUL_DELIVERY_API_TOKEN
+  patterns:
+  - name: api_keys.contentful-delivery-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:contentful)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9=_\-]{43})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - contentful
+  supported_languages:
+  - ru
+- name: api_keys.databricks-api-token.gl
+  supported_entity: DATABRICKS_API_TOKEN
+  patterns:
+  - name: api_keys.databricks-api-token.gl
+    regex: \b(dapi[a-f0-9]{32}(?:-\d)?)(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - dapi
+  supported_languages:
+  - ru
+- name: api_keys.defined-networking-api-token.gl
+  supported_entity: DEFINED_NETWORKING_API_TOKEN
+  patterns:
+  - name: api_keys.defined-networking-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:dnkey)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(dnkey-[a-z0-9=_\-]{26}-[a-z0-9=_\-]{52})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - dnkey
+  supported_languages:
+  - ru
+- name: api_keys.discord-api-token.gl
+  supported_entity: DISCORD_API_TOKEN
+  patterns:
+  - name: api_keys.discord-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:discord)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-f0-9]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - discord
+  supported_languages:
+  - ru
+- name: api_keys.doppler-api-token.gl
+  supported_entity: DOPPLER_API_TOKEN
+  patterns:
+  - name: api_keys.doppler-api-token.gl
+    regex: dp\.pt\.(?i)[a-z0-9]{43}
+    score: 0.8
+  context:
+  - dp.pt.
+  supported_languages:
+  - ru
+- name: api_keys.dropbox-api-token.gl
+  supported_entity: DROPBOX_API_TOKEN
+  patterns:
+  - name: api_keys.dropbox-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:dropbox)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{15})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - dropbox
+  supported_languages:
+  - ru
+- name: api_keys.dropbox-long-lived-api-token.gl
+  supported_entity: DROPBOX_LONG_LIVED_API_TOKEN
+  patterns:
+  - name: api_keys.dropbox-long-lived-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:dropbox)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{11}(AAAAAAAAAA)[a-z0-9\-_=]{43})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - dropbox
+  supported_languages:
+  - ru
+- name: api_keys.dropbox-short-lived-api-token.gl
+  supported_entity: DROPBOX_SHORT_LIVED_API_TOKEN
+  patterns:
+  - name: api_keys.dropbox-short-lived-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:dropbox)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(sl\.[a-z0-9\-=_]{135})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - dropbox
+  supported_languages:
+  - ru
+- name: api_keys.duffel-api-token.gl
+  supported_entity: DUFFEL_API_TOKEN
+  patterns:
+  - name: api_keys.duffel-api-token.gl
+    regex: duffel_(?:test|live)_(?i)[a-z0-9_\-=]{43}
+    score: 0.8
+  context:
+  - duffel_
+  supported_languages:
+  - ru
+- name: api_keys.dynatrace-api-token.gl
+  supported_entity: DYNATRACE_API_TOKEN
+  patterns:
+  - name: api_keys.dynatrace-api-token.gl
+    regex: dt0c01\.(?i)[a-z0-9]{24}\.[a-z0-9]{64}
+    score: 0.8
+  context:
+  - dt0c01.
+  supported_languages:
+  - ru
+- name: api_keys.easypost-api-token.gl
+  supported_entity: EASYPOST_API_TOKEN
+  patterns:
+  - name: api_keys.easypost-api-token.gl
+    regex: \bEZAK(?i)[a-z0-9]{54}\b
+    score: 0.8
+  context:
+  - ezak
+  supported_languages:
+  - ru
+- name: api_keys.easypost-test-api-token.gl
+  supported_entity: EASYPOST_TEST_API_TOKEN
+  patterns:
+  - name: api_keys.easypost-test-api-token.gl
+    regex: \bEZTK(?i)[a-z0-9]{54}\b
+    score: 0.8
+  context:
+  - eztk
+  supported_languages:
+  - ru
+- name: api_keys.fastly-api-token.gl
+  supported_entity: FASTLY_API_TOKEN
+  patterns:
+  - name: api_keys.fastly-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:fastly)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9=_\-]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - fastly
+  supported_languages:
+  - ru
+- name: api_keys.finicity-api-token.gl
+  supported_entity: FINICITY_API_TOKEN
+  patterns:
+  - name: api_keys.finicity-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:finicity)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-f0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - finicity
+  supported_languages:
+  - ru
+- name: api_keys.flyio-access-token.gl
+  supported_entity: FLYIO_ACCESS_TOKEN
+  patterns:
+  - name: api_keys.flyio-access-token.gl
+    regex: \b((?:fo1_[\w-]{43}|fm1[ar]_[a-zA-Z0-9+\/]{100,}={0,3}|fm2_[a-zA-Z0-9+\/]{100,}={0,3}))(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - fo1_
+  - fm1
+  - fm2_
+  supported_languages:
+  - ru
+- name: api_keys.frameio-api-token.gl
+  supported_entity: FRAMEIO_API_TOKEN
+  patterns:
+  - name: api_keys.frameio-api-token.gl
+    regex: fio-u-(?i)[a-z0-9\-_=]{64}
+    score: 0.8
+  context:
+  - fio-u-
+  supported_languages:
+  - ru
+- name: api_keys.gcp-api-key.gl
+  supported_entity: GCP_API_KEY
+  patterns:
+  - name: api_keys.gcp-api-key.gl
+    regex: \b(AIza[\w-]{35})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - aiza
+  supported_languages:
+  - ru
+- name: api_keys.gocardless-api-token.gl
+  supported_entity: GOCARDLESS_API_TOKEN
+  patterns:
+  - name: api_keys.gocardless-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:gocardless)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(live_(?i)[a-z0-9\-_=]{40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - live_
+  - gocardless
+  supported_languages:
+  - ru
+- name: api_keys.grafana-api-key.gl
+  supported_entity: GRAFANA_API_KEY
+  patterns:
+  - name: api_keys.grafana-api-key.gl
+    regex: (?i)\b(eyJrIjoi[A-Za-z0-9]{70,400}={0,3})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - eyjrijoi
+  supported_languages:
+  - ru
+- name: api_keys.grafana-cloud-api-token.gl
+  supported_entity: GRAFANA_CLOUD_API_TOKEN
+  patterns:
+  - name: api_keys.grafana-cloud-api-token.gl
+    regex: (?i)\b(glc_[A-Za-z0-9+/]{32,400}={0,3})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - glc_
+  supported_languages:
+  - ru
+- name: api_keys.harness-api-key.gl
+  supported_entity: HARNESS_API_KEY
+  patterns:
+  - name: api_keys.harness-api-key.gl
+    regex: (?:pat|sat)\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9]{24}\.[a-zA-Z0-9]{20}
+    score: 0.8
+  context:
+  - pat.
+  - sat.
+  supported_languages:
+  - ru
+- name: api_keys.hashicorp-tf-api-token.gl
+  supported_entity: HASHICORP_TF_API_TOKEN
+  patterns:
+  - name: api_keys.hashicorp-tf-api-token.gl
+    regex: (?i)[a-z0-9]{14}\.(?-i:atlasv1)\.[a-z0-9\-_=]{60,70}
+    score: 0.8
+  context:
+  - atlasv1
+  supported_languages:
+  - ru
+- name: api_keys.heroku-api-key-v2.gl
+  supported_entity: HEROKU_API_KEY_V2
+  patterns:
+  - name: api_keys.heroku-api-key-v2.gl
+    regex: \b((HRKU-AA[0-9a-zA-Z_-]{58}))(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - hrku-aa
+  supported_languages:
+  - ru
+- name: api_keys.heroku-api-key.gl
+  supported_entity: HEROKU_API_KEY
+  patterns:
+  - name: api_keys.heroku-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:heroku)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - heroku
+  supported_languages:
+  - ru
+- name: api_keys.hubspot-api-key.gl
+  supported_entity: HUBSPOT_API_KEY
+  patterns:
+  - name: api_keys.hubspot-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:hubspot)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - hubspot
+  supported_languages:
+  - ru
+- name: api_keys.huggingface-organization-api-token.gl
+  supported_entity: HUGGINGFACE_ORGANIZATION_API_TOKEN
+  patterns:
+  - name: api_keys.huggingface-organization-api-token.gl
+    regex: \b(api_org_(?i:[a-z]{34}))(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - api_org_
+  supported_languages:
+  - ru
+- name: api_keys.infracost-api-token.gl
+  supported_entity: INFRACOST_API_TOKEN
+  patterns:
+  - name: api_keys.infracost-api-token.gl
+    regex: \b(ico-[a-zA-Z0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - ico-
+  supported_languages:
+  - ru
+- name: api_keys.intercom-api-key.gl
+  supported_entity: INTERCOM_API_KEY
+  patterns:
+  - name: api_keys.intercom-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:intercom)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9=_\-]{60})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - intercom
+  supported_languages:
+  - ru
+- name: api_keys.jfrog-api-key.gl
+  supported_entity: JFROG_API_KEY
+  patterns:
+  - name: api_keys.jfrog-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:jfrog|artifactory|bintray|xray)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{73})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - jfrog
+  - artifactory
+  - bintray
+  - xray
+  supported_languages:
+  - ru
+- name: api_keys.linear-api-key.gl
+  supported_entity: LINEAR_API_KEY
+  patterns:
+  - name: api_keys.linear-api-key.gl
+    regex: lin_api_(?i)[a-z0-9]{40}
+    score: 0.8
+  context:
+  - lin_api_
+  supported_languages:
+  - ru
+- name: api_keys.lob-api-key.gl
+  supported_entity: LOB_API_KEY
+  patterns:
+  - name: api_keys.lob-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:lob)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}((live|test)_[a-f0-9]{35})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - test_
+  - live_
+  supported_languages:
+  - ru
+- name: api_keys.lob-pub-api-key.gl
+  supported_entity: LOB_PUB_API_KEY
+  patterns:
+  - name: api_keys.lob-pub-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:lob)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}((test|live)_pub_[a-f0-9]{31})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - test_pub
+  - live_pub
+  - _pub
+  supported_languages:
+  - ru
+- name: api_keys.mailchimp-api-key.gl
+  supported_entity: MAILCHIMP_API_KEY
+  patterns:
+  - name: api_keys.mailchimp-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:MailchimpSDK.initialize|mailchimp)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-f0-9]{32}-us\d\d)(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - mailchimp
+  supported_languages:
+  - ru
+- name: api_keys.mailgun-private-api-token.gl
+  supported_entity: MAILGUN_PRIVATE_API_TOKEN
+  patterns:
+  - name: api_keys.mailgun-private-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:mailgun)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(key-[a-f0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - mailgun
+  supported_languages:
+  - ru
+- name: api_keys.mapbox-api-token.gl
+  supported_entity: MAPBOX_API_TOKEN
+  patterns:
+  - name: api_keys.mapbox-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:mapbox)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(pk\.[a-z0-9]{60}\.[a-z0-9]{22})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - mapbox
+  supported_languages:
+  - ru
+- name: api_keys.messagebird-api-token.gl
+  supported_entity: MESSAGEBIRD_API_TOKEN
+  patterns:
+  - name: api_keys.messagebird-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:message[_-]?bird)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{25})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - messagebird
+  - message-bird
+  - message_bird
+  supported_languages:
+  - ru
+- name: api_keys.new-relic-browser-api-token.gl
+  supported_entity: NEW_RELIC_BROWSER_API_TOKEN
+  patterns:
+  - name: api_keys.new-relic-browser-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:new-relic|newrelic|new_relic)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(NRJS-[a-f0-9]{19})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - nrjs-
+  supported_languages:
+  - ru
+- name: api_keys.new-relic-user-api-key.gl
+  supported_entity: NEW_RELIC_USER_API_KEY
+  patterns:
+  - name: api_keys.new-relic-user-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:new-relic|newrelic|new_relic)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(NRAK-[a-z0-9]{27})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - nrak
+  supported_languages:
+  - ru
+- name: api_keys.notion-api-token.gl
+  supported_entity: NOTION_API_TOKEN
+  patterns:
+  - name: api_keys.notion-api-token.gl
+    regex: \b(ntn_[0-9]{11}[A-Za-z0-9]{32}[A-Za-z0-9]{3})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - ntn_
+  supported_languages:
+  - ru
+- name: api_keys.octopus-deploy-api-key.gl
+  supported_entity: OCTOPUS_DEPLOY_API_KEY
+  patterns:
+  - name: api_keys.octopus-deploy-api-key.gl
+    regex: \b(API-[A-Z0-9]{26})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - api-
+  supported_languages:
+  - ru
+- name: api_keys.openai-api-key.gl
+  supported_entity: OPENAI_API_KEY
+  patterns:
+  - name: api_keys.openai-api-key.gl
+    regex: \b(sk-(?:proj|svcacct|admin)-(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})T3BlbkFJ(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})\b|sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - t3blbkfj
+  supported_languages:
+  - ru
+- name: api_keys.perplexity-api-key.gl
+  supported_entity: PERPLEXITY_API_KEY
+  patterns:
+  - name: api_keys.perplexity-api-key.gl
+    regex: \b(pplx-[a-zA-Z0-9]{48})(?=[\x60'"\s;]|\\[nr]|$|\b)
+    score: 0.8
+  context:
+  - pplx-
+  supported_languages:
+  - ru
+- name: api_keys.plaid-api-token.gl
+  supported_entity: PLAID_API_TOKEN
+  patterns:
+  - name: api_keys.plaid-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:plaid)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(access-(?:sandbox|development|production)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - plaid
+  supported_languages:
+  - ru
+- name: api_keys.planetscale-api-token.gl
+  supported_entity: PLANETSCALE_API_TOKEN
+  patterns:
+  - name: api_keys.planetscale-api-token.gl
+    regex: \b(pscale_tkn_(?i)[\w=\.-]{32,64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - pscale_tkn_
+  supported_languages:
+  - ru
+- name: api_keys.postman-api-token.gl
+  supported_entity: POSTMAN_API_TOKEN
+  patterns:
+  - name: api_keys.postman-api-token.gl
+    regex: \b(PMAK-(?i)[a-f0-9]{24}\-[a-f0-9]{34})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - pmak-
+  supported_languages:
+  - ru
+- name: api_keys.prefect-api-token.gl
+  supported_entity: PREFECT_API_TOKEN
+  patterns:
+  - name: api_keys.prefect-api-token.gl
+    regex: \b(pnu_[a-zA-Z0-9]{36})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - pnu_
+  supported_languages:
+  - ru
+- name: api_keys.privateai-api-token.gl
+  supported_entity: PRIVATEAI_API_TOKEN
+  patterns:
+  - name: api_keys.privateai-api-token.gl
+    regex: '[\w.-]{0,50}?(?i:[\w.-]{0,50}?(?:private[_-]?ai)(?:[ \t\w.-]{0,20})[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}([a-z0-9]{32})(?=[\x60''"\s,;:!?()\[\]{}]|\\[nr]|$)'
+    score: 0.8
+  context:
+  - privateai
+  - private_ai
+  - private-ai
+  supported_languages:
+  - ru
+- name: api_keys.pulumi-api-token.gl
+  supported_entity: PULUMI_API_TOKEN
+  patterns:
+  - name: api_keys.pulumi-api-token.gl
+    regex: \b(pul-[a-f0-9]{40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - pul-
+  supported_languages:
+  - ru
+- name: api_keys.readme-api-token.gl
+  supported_entity: README_API_TOKEN
+  patterns:
+  - name: api_keys.readme-api-token.gl
+    regex: \b(rdme_[a-z0-9]{70})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - rdme_
+  supported_languages:
+  - ru
+- name: api_keys.rubygems-api-token.gl
+  supported_entity: RUBYGEMS_API_TOKEN
+  patterns:
+  - name: api_keys.rubygems-api-token.gl
+    regex: \b(rubygems_[a-f0-9]{48})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - rubygems_
+  supported_languages:
+  - ru
+- name: api_keys.scalingo-api-token.gl
+  supported_entity: SCALINGO_API_TOKEN
+  patterns:
+  - name: api_keys.scalingo-api-token.gl
+    regex: \b(tk-us-[\w-]{48})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - tk-us-
+  supported_languages:
+  - ru
+- name: api_keys.sendgrid-api-token.gl
+  supported_entity: SENDGRID_API_TOKEN
+  patterns:
+  - name: api_keys.sendgrid-api-token.gl
+    regex: \b(SG\.(?i)[a-z0-9=_\-\.]{66})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sg.
+  supported_languages:
+  - ru
+- name: api_keys.sendinblue-api-token.gl
+  supported_entity: SENDINBLUE_API_TOKEN
+  patterns:
+  - name: api_keys.sendinblue-api-token.gl
+    regex: \b(xkeysib-[a-f0-9]{64}\-(?i)[a-z0-9]{16})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - xkeysib-
+  supported_languages:
+  - ru
+- name: api_keys.shippo-api-token.gl
+  supported_entity: SHIPPO_API_TOKEN
+  patterns:
+  - name: api_keys.shippo-api-token.gl
+    regex: \b(shippo_(?:live|test)_[a-fA-F0-9]{40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - shippo_
+  supported_languages:
+  - ru
+- name: api_keys.snyk-api-token.gl
+  supported_entity: SNYK_API_TOKEN
+  patterns:
+  - name: api_keys.snyk-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:snyk[_.-]?(?:(?:api|oauth)[_.-]?)?(?:key|token))(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - snyk
+  supported_languages:
+  - ru
+- name: api_keys.sonar-api-token.gl
+  supported_entity: SONAR_API_TOKEN
+  patterns:
+  - name: api_keys.sonar-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:sonar[_.-]?(login|token))(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}((?:squ_|sqp_|sqa_)?[a-z0-9=_\-]{40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sonar
+  supported_languages:
+  - ru
+- name: api_keys.telegram-bot-api-token.gl
+  supported_entity: TELEGRAM_BOT_API_TOKEN
+  patterns:
+  - name: api_keys.telegram-bot-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:telegr)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9]{5,16}:(?-i:A)[a-z0-9_\-]{34})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - telegr
+  supported_languages:
+  - ru
+- name: api_keys.twilio-api-key.gl
+  supported_entity: TWILIO_API_KEY
+  patterns:
+  - name: api_keys.twilio-api-key.gl
+    regex: SK[0-9a-fA-F]{32}
+    score: 0.8
+  context:
+  - sk
+  supported_languages:
+  - ru
+- name: api_keys.twitch-api-token.gl
+  supported_entity: TWITCH_API_TOKEN
+  patterns:
+  - name: api_keys.twitch-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:twitch)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{30})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - twitch
+  supported_languages:
+  - ru
+- name: api_keys.twitter-api-key.gl
+  supported_entity: TWITTER_API_KEY
+  patterns:
+  - name: api_keys.twitter-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:twitter)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{25})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - twitter
+  supported_languages:
+  - ru
+- name: api_keys.twitter-bearer-token.gl
+  supported_entity: TWITTER_BEARER_TOKEN
+  patterns:
+  - name: api_keys.twitter-bearer-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:twitter)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(A{22}[a-zA-Z0-9%]{80,100})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - twitter
+  supported_languages:
+  - ru
+- name: api_keys.typeform-api-token.gl
+  supported_entity: TYPEFORM_API_TOKEN
+  patterns:
+  - name: api_keys.typeform-api-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:typeform)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(tfp_[a-z0-9\-_\.=]{59})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - tfp_
+  supported_languages:
+  - ru
+- name: api_keys.yandex-api-key.gl
+  supported_entity: YANDEX_API_KEY
+  patterns:
+  - name: api_keys.yandex-api-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:yandex)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(AQVN[A-Za-z0-9_\-]{35,38})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - yandex
+  supported_languages:
+  - ru
+- name: access_tokens.1password-secret-key.gl
+  supported_entity: 1PASSWORD_SECRET_KEY
+  patterns:
+  - name: access_tokens.1password-secret-key.gl
+    regex: \bA3-[A-Z0-9]{6}-(?:(?:[A-Z0-9]{11})|(?:[A-Z0-9]{6}-[A-Z0-9]{5}))-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}\b
+    score: 0.8
+  context:
+  - a3-
+  supported_languages:
+  - ru
+- name: access_tokens.1password-service-account-token.gl
+  supported_entity: 1PASSWORD_SERVICE_ACCOUNT_TOKEN
+  patterns:
+  - name: access_tokens.1password-service-account-token.gl
+    regex: ops_eyJ[a-zA-Z0-9+/]{250,}={0,3}
+    score: 0.8
+  context:
+  - ops_
+  supported_languages:
+  - ru
+- name: access_tokens.age-secret-key.gl
+  supported_entity: AGE_SECRET_KEY
+  patterns:
+  - name: access_tokens.age-secret-key.gl
+    regex: AGE-SECRET-KEY-1[QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L]{58}
+    score: 0.8
+  context:
+  - age-secret-key-1
+  supported_languages:
+  - ru
+- name: access_tokens.airtable-personnal-access-token.gl
+  supported_entity: AIRTABLE_PERSONNAL_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.airtable-personnal-access-token.gl
+    regex: \b(pat[[:alnum:]]{14}\.[a-f0-9]{64})\b
+    score: 0.8
+  context:
+  - airtable
+  supported_languages:
+  - ru
+- name: access_tokens.alibaba-access-key-id.gl
+  supported_entity: ALIBABA_ACCESS_KEY_ID
+  patterns:
+  - name: access_tokens.alibaba-access-key-id.gl
+    regex: \b(LTAI(?i)[a-z0-9]{20})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - ltai
+  supported_languages:
+  - ru
+- name: access_tokens.alibaba-secret-key.gl
+  supported_entity: ALIBABA_SECRET_KEY
+  patterns:
+  - name: access_tokens.alibaba-secret-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:alibaba)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{30})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - alibaba
+  supported_languages:
+  - ru
+- name: access_tokens.artifactory-reference-token.gl
+  supported_entity: ARTIFACTORY_REFERENCE_TOKEN
+  patterns:
+  - name: access_tokens.artifactory-reference-token.gl
+    regex: \bcmVmd[A-Za-z0-9]{59}\b
+    score: 0.8
+  context:
+  - cmvmd
+  supported_languages:
+  - ru
+- name: access_tokens.authress-service-client-access-key.gl
+  supported_entity: AUTHRESS_SERVICE_CLIENT_ACCESS_KEY
+  patterns:
+  - name: access_tokens.authress-service-client-access-key.gl
+    regex: \b((?:sc|ext|scauth|authress)_(?i)[a-z0-9]{5,30}\.[a-z0-9]{4,6}\.(?-i:acc)[_-][a-z0-9-]{10,32}\.[a-z0-9+/_=-]{30,120})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sc_
+  - ext_
+  - scauth_
+  - authress_
+  supported_languages:
+  - ru
+- name: access_tokens.aws-access-token.gl
+  supported_entity: AWS_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.aws-access-token.gl
+    regex: \b((?:A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z2-7]{16})\b
+    score: 0.8
+  context:
+  - a3t
+  - akia
+  - asia
+  - abia
+  - acca
+  supported_languages:
+  - ru
+- name: access_tokens.bittrex-access-key.gl
+  supported_entity: BITTREX_ACCESS_KEY
+  patterns:
+  - name: access_tokens.bittrex-access-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:bittrex)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - bittrex
+  supported_languages:
+  - ru
+- name: access_tokens.cloudflare-origin-ca-key.gl
+  supported_entity: CLOUDFLARE_ORIGIN_CA_KEY
+  patterns:
+  - name: access_tokens.cloudflare-origin-ca-key.gl
+    regex: \b(v1\.0-[a-f0-9]{24}-[a-f0-9]{146})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - cloudflare
+  - v1.0-
+  supported_languages:
+  - ru
+- name: access_tokens.codecov-access-token.gl
+  supported_entity: CODECOV_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.codecov-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:codecov)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - codecov
+  supported_languages:
+  - ru
+- name: access_tokens.coinbase-access-token.gl
+  supported_entity: COINBASE_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.coinbase-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:coinbase)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9_-]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - coinbase
+  supported_languages:
+  - ru
+- name: access_tokens.confluent-access-token.gl
+  supported_entity: CONFLUENT_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.confluent-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:confluent)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{16})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - confluent
+  supported_languages:
+  - ru
+- name: access_tokens.confluent-secret-key.gl
+  supported_entity: CONFLUENT_SECRET_KEY
+  patterns:
+  - name: access_tokens.confluent-secret-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:confluent)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - confluent
+  supported_languages:
+  - ru
+- name: access_tokens.datadog-access-token.gl
+  supported_entity: DATADOG_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.datadog-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:datadog)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - datadog
+  supported_languages:
+  - ru
+- name: access_tokens.digitalocean-access-token.gl
+  supported_entity: DIGITALOCEAN_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.digitalocean-access-token.gl
+    regex: \b(doo_v1_[a-f0-9]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - doo_v1_
+  supported_languages:
+  - ru
+- name: access_tokens.digitalocean-pat.gl
+  supported_entity: DIGITALOCEAN_PAT
+  patterns:
+  - name: access_tokens.digitalocean-pat.gl
+    regex: \b(dop_v1_[a-f0-9]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - dop_v1_
+  supported_languages:
+  - ru
+- name: access_tokens.droneci-access-token.gl
+  supported_entity: DRONECI_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.droneci-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:droneci)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - droneci
+  supported_languages:
+  - ru
+- name: access_tokens.etsy-access-token.gl
+  supported_entity: ETSY_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.etsy-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:(?-i:ETSY|[Ee]tsy))(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{24})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - etsy
+  supported_languages:
+  - ru
+- name: access_tokens.facebook-access-token.gl
+  supported_entity: FACEBOOK_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.facebook-access-token.gl
+    regex: (?i)\b(\d{15,16}(\||%)[0-9a-z\-_]{27,40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - facebook
+  supported_languages:
+  - ru
+- name: access_tokens.facebook-page-access-token.gl
+  supported_entity: FACEBOOK_PAGE_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.facebook-page-access-token.gl
+    regex: \b(EAA[MC](?i)[a-z0-9]{100,})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - eaam
+  - eaac
+  supported_languages:
+  - ru
+- name: access_tokens.finnhub-access-token.gl
+  supported_entity: FINNHUB_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.finnhub-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:finnhub)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{20})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - finnhub
+  supported_languages:
+  - ru
+- name: access_tokens.flickr-access-token.gl
+  supported_entity: FLICKR_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.flickr-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:flickr)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - flickr
+  supported_languages:
+  - ru
+- name: access_tokens.flutterwave-encryption-key.gl
+  supported_entity: FLUTTERWAVE_ENCRYPTION_KEY
+  patterns:
+  - name: access_tokens.flutterwave-encryption-key.gl
+    regex: FLWSECK_TEST-(?i)[a-h0-9]{12}
+    score: 0.8
+  context:
+  - flwseck_test
+  supported_languages:
+  - ru
+- name: access_tokens.flutterwave-public-key.gl
+  supported_entity: FLUTTERWAVE_PUBLIC_KEY
+  patterns:
+  - name: access_tokens.flutterwave-public-key.gl
+    regex: FLWPUBK_TEST-(?i)[a-h0-9]{32}-X
+    score: 0.8
+  context:
+  - flwpubk_test
+  supported_languages:
+  - ru
+- name: access_tokens.flutterwave-secret-key.gl
+  supported_entity: FLUTTERWAVE_SECRET_KEY
+  patterns:
+  - name: access_tokens.flutterwave-secret-key.gl
+    regex: FLWSECK_TEST-(?i)[a-h0-9]{32}-X
+    score: 0.8
+  context:
+  - flwseck_test
+  supported_languages:
+  - ru
+- name: access_tokens.freemius-secret-key.gl
+  supported_entity: FREEMIUS_SECRET_KEY
+  patterns:
+  - name: access_tokens.freemius-secret-key.gl
+    regex: (?i)["']secret_key["']\s*=>\s*["'](sk_[\S]{29})["']
+    score: 0.8
+  context:
+  - secret_key
+  supported_languages:
+  - ru
+- name: access_tokens.freshbooks-access-token.gl
+  supported_entity: FRESHBOOKS_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.freshbooks-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:freshbooks)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - freshbooks
+  supported_languages:
+  - ru
+- name: access_tokens.github-app-token.gl
+  supported_entity: GITHUB_APP_TOKEN
+  patterns:
+  - name: access_tokens.github-app-token.gl
+    regex: (?:ghu|ghs)_[0-9a-zA-Z]{36}
+    score: 0.8
+  context:
+  - ghu_
+  - ghs_
+  supported_languages:
+  - ru
+- name: access_tokens.github-fine-grained-pat.gl
+  supported_entity: GITHUB_FINE_GRAINED_PAT
+  patterns:
+  - name: access_tokens.github-fine-grained-pat.gl
+    regex: github_pat_\w{82}
+    score: 0.8
+  context:
+  - github_pat_
+  supported_languages:
+  - ru
+- name: access_tokens.github-pat.gl
+  supported_entity: GITHUB_PAT
+  patterns:
+  - name: access_tokens.github-pat.gl
+    regex: ghp_[0-9a-zA-Z]{36}
+    score: 0.8
+  context:
+  - ghp_
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-cicd-job-token.gl
+  supported_entity: GITLAB_CICD_JOB_TOKEN
+  patterns:
+  - name: access_tokens.gitlab-cicd-job-token.gl
+    regex: glcbt-[0-9a-zA-Z]{1,5}_[0-9a-zA-Z_-]{20}
+    score: 0.8
+  context:
+  - glcbt-
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-deploy-token.gl
+  supported_entity: GITLAB_DEPLOY_TOKEN
+  patterns:
+  - name: access_tokens.gitlab-deploy-token.gl
+    regex: gldt-[0-9a-zA-Z_\-]{20}
+    score: 0.8
+  context:
+  - gldt-
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-feature-flag-client-token.gl
+  supported_entity: GITLAB_FEATURE_FLAG_CLIENT_TOKEN
+  patterns:
+  - name: access_tokens.gitlab-feature-flag-client-token.gl
+    regex: glffct-[0-9a-zA-Z_\-]{20}
+    score: 0.8
+  context:
+  - glffct-
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-feed-token.gl
+  supported_entity: GITLAB_FEED_TOKEN
+  patterns:
+  - name: access_tokens.gitlab-feed-token.gl
+    regex: glft-[0-9a-zA-Z_\-]{20}
+    score: 0.8
+  context:
+  - glft-
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-incoming-mail-token.gl
+  supported_entity: GITLAB_INCOMING_MAIL_TOKEN
+  patterns:
+  - name: access_tokens.gitlab-incoming-mail-token.gl
+    regex: glimt-[0-9a-zA-Z_\-]{25}
+    score: 0.8
+  context:
+  - glimt-
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-kubernetes-agent-token.gl
+  supported_entity: GITLAB_KUBERNETES_AGENT_TOKEN
+  patterns:
+  - name: access_tokens.gitlab-kubernetes-agent-token.gl
+    regex: glagent-[0-9a-zA-Z_\-]{50}
+    score: 0.8
+  context:
+  - glagent-
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-pat-routable.gl
+  supported_entity: GITLAB_PAT_ROUTABLE
+  patterns:
+  - name: access_tokens.gitlab-pat-routable.gl
+    regex: \bglpat-[0-9a-zA-Z_-]{27,300}\.[0-9a-z]{2}[0-9a-z]{7}\b
+    score: 0.8
+  context:
+  - glpat-
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-pat.gl
+  supported_entity: GITLAB_PAT
+  patterns:
+  - name: access_tokens.gitlab-pat.gl
+    regex: glpat-[\w-]{20}
+    score: 0.8
+  context:
+  - glpat-
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-ptt.gl
+  supported_entity: GITLAB_PTT
+  patterns:
+  - name: access_tokens.gitlab-ptt.gl
+    regex: glptt-[0-9a-f]{40}
+    score: 0.8
+  context:
+  - glptt-
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-rrt.gl
+  supported_entity: GITLAB_RRT
+  patterns:
+  - name: access_tokens.gitlab-rrt.gl
+    regex: GR1348941[\w-]{20}
+    score: 0.8
+  context:
+  - gr1348941
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-runner-authentication-token-routable.gl
+  supported_entity: GITLAB_RUNNER_AUTHENTICATION_TOKEN_ROUTABLE
+  patterns:
+  - name: access_tokens.gitlab-runner-authentication-token-routable.gl
+    regex: \bglrt-t\d_[0-9a-zA-Z_\-]{27,300}\.[0-9a-z]{2}[0-9a-z]{7}\b
+    score: 0.8
+  context:
+  - glrt-
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-runner-authentication-token.gl
+  supported_entity: GITLAB_RUNNER_AUTHENTICATION_TOKEN
+  patterns:
+  - name: access_tokens.gitlab-runner-authentication-token.gl
+    regex: glrt-[0-9a-zA-Z_\-]{20}
+    score: 0.8
+  context:
+  - glrt-
+  supported_languages:
+  - ru
+- name: access_tokens.gitlab-scim-token.gl
+  supported_entity: GITLAB_SCIM_TOKEN
+  patterns:
+  - name: access_tokens.gitlab-scim-token.gl
+    regex: glsoat-[0-9a-zA-Z_\-]{20}
+    score: 0.8
+  context:
+  - glsoat-
+  supported_languages:
+  - ru
+- name: access_tokens.gitter-access-token.gl
+  supported_entity: GITTER_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.gitter-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:gitter)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9_-]{40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - gitter
+  supported_languages:
+  - ru
+- name: access_tokens.grafana-service-account-token.gl
+  supported_entity: GRAFANA_SERVICE_ACCOUNT_TOKEN
+  patterns:
+  - name: access_tokens.grafana-service-account-token.gl
+    regex: (?i)\b(glsa_[A-Za-z0-9]{32}_[A-Fa-f0-9]{8})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - glsa_
+  supported_languages:
+  - ru
+- name: access_tokens.huggingface-access-token.gl
+  supported_entity: HUGGINGFACE_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.huggingface-access-token.gl
+    regex: \b(hf_(?i:[a-z]{34}))(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - hf_
+  supported_languages:
+  - ru
+- name: access_tokens.jfrog-identity-token.gl
+  supported_entity: JFROG_IDENTITY_TOKEN
+  patterns:
+  - name: access_tokens.jfrog-identity-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:jfrog|artifactory|bintray|xray)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - jfrog
+  - artifactory
+  - bintray
+  - xray
+  supported_languages:
+  - ru
+- name: access_tokens.kraken-access-token.gl
+  supported_entity: KRAKEN_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.kraken-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:kraken)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9\/=_\+\-]{80,90})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - kraken
+  supported_languages:
+  - ru
+- name: access_tokens.kucoin-access-token.gl
+  supported_entity: KUCOIN_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.kucoin-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:kucoin)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-f0-9]{24})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - kucoin
+  supported_languages:
+  - ru
+- name: access_tokens.kucoin-secret-key.gl
+  supported_entity: KUCOIN_SECRET_KEY
+  patterns:
+  - name: access_tokens.kucoin-secret-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:kucoin)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - kucoin
+  supported_languages:
+  - ru
+- name: access_tokens.launchdarkly-access-token.gl
+  supported_entity: LAUNCHDARKLY_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.launchdarkly-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:launchdarkly)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9=_\-]{40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - launchdarkly
+  supported_languages:
+  - ru
+- name: access_tokens.mailgun-pub-key.gl
+  supported_entity: MAILGUN_PUB_KEY
+  patterns:
+  - name: access_tokens.mailgun-pub-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:mailgun)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(pubkey-[a-f0-9]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - mailgun
+  supported_languages:
+  - ru
+- name: access_tokens.mailgun-signing-key.gl
+  supported_entity: MAILGUN_SIGNING_KEY
+  patterns:
+  - name: access_tokens.mailgun-signing-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:mailgun)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-h0-9]{32}-[a-h0-9]{8}-[a-h0-9]{8})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - mailgun
+  supported_languages:
+  - ru
+- name: access_tokens.mattermost-access-token.gl
+  supported_entity: MATTERMOST_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.mattermost-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:mattermost)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{26})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - mattermost
+  supported_languages:
+  - ru
+- name: access_tokens.maxmind-license-key.gl
+  supported_entity: MAXMIND_LICENSE_KEY
+  patterns:
+  - name: access_tokens.maxmind-license-key.gl
+    regex: \b([A-Za-z0-9]{6}_[A-Za-z0-9]{29}_mmk)(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - _mmk
+  supported_languages:
+  - ru
+- name: access_tokens.microsoft-teams-webhook.gl
+  supported_entity: MICROSOFT_TEAMS_WEBHOOK
+  patterns:
+  - name: access_tokens.microsoft-teams-webhook.gl
+    regex: https://[a-z0-9]+\.webhook\.office\.com/webhookb2/[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}@[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}/IncomingWebhook/[a-z0-9]{32}/[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}
+    score: 0.8
+  context:
+  - webhook.office.com
+  - webhookb2
+  - incomingwebhook
+  supported_languages:
+  - ru
+- name: access_tokens.netlify-access-token.gl
+  supported_entity: NETLIFY_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.netlify-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:netlify)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9=_\-]{40,46})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - netlify
+  supported_languages:
+  - ru
+- name: access_tokens.new-relic-insert-key.gl
+  supported_entity: NEW_RELIC_INSERT_KEY
+  patterns:
+  - name: access_tokens.new-relic-insert-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:new-relic|newrelic|new_relic)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(NRII-[a-z0-9-]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - nrii-
+  supported_languages:
+  - ru
+- name: access_tokens.npm-access-token.gl
+  supported_entity: NPM_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.npm-access-token.gl
+    regex: (?i)\b(npm_[a-z0-9]{36})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - npm_
+  supported_languages:
+  - ru
+- name: access_tokens.nytimes-access-token.gl
+  supported_entity: NYTIMES_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.nytimes-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:nytimes|new-york-times,|newyorktimes)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9=_\-]{32})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - nytimes
+  - new-york-times
+  - newyorktimes
+  supported_languages:
+  - ru
+- name: access_tokens.okta-access-token.gl
+  supported_entity: OKTA_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.okta-access-token.gl
+    regex: '[\w.-]{0,50}?(?i:[\w.-]{0,50}?(?:(?-i:[Oo]kta|OKTA))(?:[ \t\w.-]{0,20})[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}(00[\w=\-]{40})(?=[\x60''"\s,;:!?()\[\]{}]|\\[nr]|$)'
+    score: 0.8
+  context:
+  - okta
+  supported_languages:
+  - ru
+- name: access_tokens.openshift-user-token.gl
+  supported_entity: OPENSHIFT_USER_TOKEN
+  patterns:
+  - name: access_tokens.openshift-user-token.gl
+    regex: \b(sha256~[\w-]{43})(?=[^\w-]|\z)
+    score: 0.8
+  context:
+  - sha256~
+  supported_languages:
+  - ru
+- name: access_tokens.plaid-secret-key.gl
+  supported_entity: PLAID_SECRET_KEY
+  patterns:
+  - name: access_tokens.plaid-secret-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:plaid)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{30})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - plaid
+  supported_languages:
+  - ru
+- name: access_tokens.pypi-upload-token.gl
+  supported_entity: PYPI_UPLOAD_TOKEN
+  patterns:
+  - name: access_tokens.pypi-upload-token.gl
+    regex: pypi-AgEIcHlwaS5vcmc[\w-]{50,1000}
+    score: 0.8
+  context:
+  - pypi-ageichlwas5vcmc
+  supported_languages:
+  - ru
+- name: access_tokens.rapidapi-access-token.gl
+  supported_entity: RAPIDAPI_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.rapidapi-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:rapidapi)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9_-]{50})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - rapidapi
+  supported_languages:
+  - ru
+- name: access_tokens.sendbird-access-token.gl
+  supported_entity: SENDBIRD_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.sendbird-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:sendbird)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-f0-9]{40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sendbird
+  supported_languages:
+  - ru
+- name: access_tokens.sentry-access-token.gl
+  supported_entity: SENTRY_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.sentry-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:sentry)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-f0-9]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sentry
+  supported_languages:
+  - ru
+- name: access_tokens.sentry-org-token.gl
+  supported_entity: SENTRY_ORG_TOKEN
+  patterns:
+  - name: access_tokens.sentry-org-token.gl
+    regex: \b(sntrys_eyJpYXQiO[a-zA-Z0-9+/]{10,200}(?:LCJyZWdpb25fdXJs|InJlZ2lvbl91cmwi|cmVnaW9uX3VybCI6)[a-zA-Z0-9+/]{10,200}={0,2}_[a-zA-Z0-9+/]{43})(?=[^a-zA-Z0-9+/]|\z)
+    score: 0.8
+  context:
+  - sntrys_eyjpyxqio
+  supported_languages:
+  - ru
+- name: access_tokens.sentry-user-token.gl
+  supported_entity: SENTRY_USER_TOKEN
+  patterns:
+  - name: access_tokens.sentry-user-token.gl
+    regex: \b(sntryu_[a-f0-9]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sntryu_
+  supported_languages:
+  - ru
+- name: access_tokens.settlemint-application-access-token.gl
+  supported_entity: SETTLEMINT_APPLICATION_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.settlemint-application-access-token.gl
+    regex: \b(sm_aat_[a-zA-Z0-9]{16})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sm_aat
+  supported_languages:
+  - ru
+- name: access_tokens.settlemint-personal-access-token.gl
+  supported_entity: SETTLEMINT_PERSONAL_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.settlemint-personal-access-token.gl
+    regex: \b(sm_pat_[a-zA-Z0-9]{16})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sm_pat
+  supported_languages:
+  - ru
+- name: access_tokens.settlemint-service-access-token.gl
+  supported_entity: SETTLEMINT_SERVICE_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.settlemint-service-access-token.gl
+    regex: \b(sm_sat_[a-zA-Z0-9]{16})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sm_sat
+  supported_languages:
+  - ru
+- name: access_tokens.shopify-access-token.gl
+  supported_entity: SHOPIFY_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.shopify-access-token.gl
+    regex: shpat_[a-fA-F0-9]{32}
+    score: 0.8
+  context:
+  - shpat_
+  supported_languages:
+  - ru
+- name: access_tokens.shopify-custom-access-token.gl
+  supported_entity: SHOPIFY_CUSTOM_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.shopify-custom-access-token.gl
+    regex: shpca_[a-fA-F0-9]{32}
+    score: 0.8
+  context:
+  - shpca_
+  supported_languages:
+  - ru
+- name: access_tokens.shopify-private-app-access-token.gl
+  supported_entity: SHOPIFY_PRIVATE_APP_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.shopify-private-app-access-token.gl
+    regex: shppa_[a-fA-F0-9]{32}
+    score: 0.8
+  context:
+  - shppa_
+  supported_languages:
+  - ru
+- name: access_tokens.slack-app-token.gl
+  supported_entity: SLACK_APP_TOKEN
+  patterns:
+  - name: access_tokens.slack-app-token.gl
+    regex: (?i)xapp-\d-[A-Z0-9]+-\d+-[a-z0-9]+
+    score: 0.8
+  context:
+  - xapp
+  supported_languages:
+  - ru
+- name: access_tokens.slack-bot-token.gl
+  supported_entity: SLACK_BOT_TOKEN
+  patterns:
+  - name: access_tokens.slack-bot-token.gl
+    regex: xoxb-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*
+    score: 0.8
+  context:
+  - xoxb
+  supported_languages:
+  - ru
+- name: access_tokens.slack-config-access-token.gl
+  supported_entity: SLACK_CONFIG_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.slack-config-access-token.gl
+    regex: (?i)xoxe.xox[bp]-\d-[A-Z0-9]{163,166}
+    score: 0.8
+  context:
+  - xoxe.xoxb-
+  - xoxe.xoxp-
+  supported_languages:
+  - ru
+- name: access_tokens.slack-legacy-bot-token.gl
+  supported_entity: SLACK_LEGACY_BOT_TOKEN
+  patterns:
+  - name: access_tokens.slack-legacy-bot-token.gl
+    regex: xoxb-[0-9]{8,14}-[a-zA-Z0-9]{18,26}
+    score: 0.8
+  context:
+  - xoxb
+  supported_languages:
+  - ru
+- name: access_tokens.slack-legacy-token.gl
+  supported_entity: SLACK_LEGACY_TOKEN
+  patterns:
+  - name: access_tokens.slack-legacy-token.gl
+    regex: xox[os]-\d+-\d+-\d+-[a-fA-F\d]+
+    score: 0.8
+  context:
+  - xoxo
+  - xoxs
+  supported_languages:
+  - ru
+- name: access_tokens.slack-legacy-workspace-token.gl
+  supported_entity: SLACK_LEGACY_WORKSPACE_TOKEN
+  patterns:
+  - name: access_tokens.slack-legacy-workspace-token.gl
+    regex: xox[ar]-(?:\d-)?[0-9a-zA-Z]{8,48}
+    score: 0.8
+  context:
+  - xoxa
+  - xoxr
+  supported_languages:
+  - ru
+- name: access_tokens.slack-user-token.gl
+  supported_entity: SLACK_USER_TOKEN
+  patterns:
+  - name: access_tokens.slack-user-token.gl
+    regex: xox[pe](?:-[0-9]{10,13}){3}-[a-zA-Z0-9-]{28,34}
+    score: 0.8
+  context:
+  - xoxp-
+  - xoxe-
+  supported_languages:
+  - ru
+- name: access_tokens.slack-webhook-url.gl
+  supported_entity: SLACK_WEBHOOK_URL
+  patterns:
+  - name: access_tokens.slack-webhook-url.gl
+    regex: (?:https?://)?hooks.slack.com/(?:services|workflows|triggers)/[A-Za-z0-9+/]{43,56}
+    score: 0.8
+  context:
+  - hooks.slack.com
+  supported_languages:
+  - ru
+- name: access_tokens.sourcegraph-access-token.gl
+  supported_entity: SOURCEGRAPH_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.sourcegraph-access-token.gl
+    regex: (?i)\b(sgp_(?:[a-fA-F0-9]{16}|local)_[a-fA-F0-9]{40}|sgp_[a-fA-F0-9]{40})\b
+    score: 0.8
+  context:
+  - sgp_
+  - sourcegraph
+  supported_languages:
+  - ru
+- name: access_tokens.square-access-token.gl
+  supported_entity: SQUARE_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.square-access-token.gl
+    regex: \b((?:EAAA|sq0atp-)[\w-]{22,60})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sq0atp-
+  - eaaa
+  supported_languages:
+  - ru
+- name: access_tokens.squarespace-access-token.gl
+  supported_entity: SQUARESPACE_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.squarespace-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:squarespace)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - squarespace
+  supported_languages:
+  - ru
+- name: access_tokens.stripe-access-token.gl
+  supported_entity: STRIPE_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.stripe-access-token.gl
+    regex: \b((?:sk|rk)_(?:test|live|prod)_[a-zA-Z0-9]{10,99})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sk_test
+  - sk_live
+  - sk_prod
+  - rk_test
+  - rk_live
+  - rk_prod
+  supported_languages:
+  - ru
+- name: access_tokens.sumologic-access-token.gl
+  supported_entity: SUMOLOGIC_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.sumologic-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:(?-i:[Ss]umo|SUMO))(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{64})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - sumo
+  supported_languages:
+  - ru
+- name: access_tokens.travisci-access-token.gl
+  supported_entity: TRAVISCI_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.travisci-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:travis)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{22})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - travis
+  supported_languages:
+  - ru
+- name: access_tokens.twitter-access-token.gl
+  supported_entity: TWITTER_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.twitter-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:twitter)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([0-9]{15,25}-[a-zA-Z0-9]{20,40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - twitter
+  supported_languages:
+  - ru
+- name: access_tokens.vault-batch-token.gl
+  supported_entity: VAULT_BATCH_TOKEN
+  patterns:
+  - name: access_tokens.vault-batch-token.gl
+    regex: \b(hvb\.[\w-]{138,300})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - hvb.
+  supported_languages:
+  - ru
+- name: access_tokens.vault-service-token.gl
+  supported_entity: VAULT_SERVICE_TOKEN
+  patterns:
+  - name: access_tokens.vault-service-token.gl
+    regex: \b((?:hvs\.[\w-]{90,120}|s\.(?i:[a-z0-9]{24})))(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - hvs.
+  - s.
+  supported_languages:
+  - ru
+- name: access_tokens.yandex-access-token.gl
+  supported_entity: YANDEX_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.yandex-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:yandex)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(t1\.[A-Z0-9a-z_-]+[=]{0,2}\.[A-Z0-9a-z_-]{86}[=]{0,2})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - yandex
+  supported_languages:
+  - ru
+- name: access_tokens.yandex-aws-access-token.gl
+  supported_entity: YANDEX_AWS_ACCESS_TOKEN
+  patterns:
+  - name: access_tokens.yandex-aws-access-token.gl
+    regex: (?i)[\w.-]{0,50}?(?:yandex)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}(YC[a-zA-Z0-9_\-]{38})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - yandex
+  supported_languages:
+  - ru
+- name: access_tokens.zendesk-secret-key.gl
+  supported_entity: ZENDESK_SECRET_KEY
+  patterns:
+  - name: access_tokens.zendesk-secret-key.gl
+    regex: (?i)[\w.-]{0,50}?(?:zendesk)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([a-z0-9]{40})(?=[\x60'"\s,;:!?()\[\]{}]|\\[nr]|$)
+    score: 0.8
+  context:
+  - zendesk
+  supported_languages:
+  - ru
+- name: extra.ssh-public-key
+  supported_entity: SSH_PUBLIC_KEY
+  patterns:
+  - name: extra.ssh-public-key
+    regex: \bssh-(?:ed25519|rsa|dss|ecdsa-sha2-nistp(?:256|384|521)) [A-Za-z0-9+/]{60,}={0,3}(?![A-Za-z0-9+/=])
+    score: 0.8
+  supported_languages:
+  - ru
+- name: extra.openrouter-api-key
+  supported_entity: OPENROUTER_API_KEY
+  patterns:
+  - name: extra.openrouter-api-key
+    regex: \bsk-or-v1-[a-f0-9]{64}\b
+    score: 0.8
+  supported_languages:
+  - ru
+- name: extra.sk-rt-key
+  supported_entity: SK_RT_API_KEY
+  patterns:
+  - name: extra.sk-rt-key
+    regex: \bsk-rt_[a-f0-9]{60,96}\b
+    score: 0.8
+  supported_languages:
+  - ru
+- name: extra.llm-provider-token
+  supported_entity: LLM_PROVIDER_TOKEN
+  patterns:
+  - name: extra.llm-provider-token
+    regex: \bv1\.[A-Za-z0-9_-]{100,}(?![A-Za-z0-9_-])
+    score: 0.8
+  supported_languages:
+  - ru
